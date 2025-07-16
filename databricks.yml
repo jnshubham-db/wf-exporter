@@ -1,0 +1,17 @@
+# This is a Databricks asset bundle definition for DAB_QA.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+bundle:
+  name: WF_EXPORTER_BUNDLE
+
+include:
+  - environments/*.yml
+  - resources/*.yml
+
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      # host: $DATABRICKS_HOST
+

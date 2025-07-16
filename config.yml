@@ -1,0 +1,62 @@
+# Databricks Workflow Exporter Configuration
+# This configuration file supports both local and Databricks environments
+#
+# LOCAL ENVIRONMENT:
+#   - Set v_databricks_cli_path to specify CLI executable path (optional, defaults to "databricks")
+#   - Set v_databricks_config_profile to use profile-based authentication (optional)
+#   - Or provide DATABRICKS_HOST and DATABRICKS_TOKEN environment variables
+#
+# DATABRICKS ENVIRONMENT (Notebooks):
+#   - CLI will be auto-installed and authenticated using runtime context
+#   - Leave v_databricks_cli_path and v_databricks_config_profile commented/null
+#   - No manual credentials needed
+
+initial_variables:
+  v_start_path: /Users/shubham.j/Documents/ATT/wf_exporter/wfExporter/wfexporter
+  v_resource_key_job_id_mapping_csv_file_path: "{v_start_path}/bind_scripts/resource_key_job_id_mapping.csv"
+  v_backup_jobs_yaml_path: "{v_start_path}/backup_jobs_yaml/"
+  v_log_level: DEBUG  # Supported values: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  
+  # CLI Configuration (Optional - for local environments)
+  # Leave null/commented for auto-detection or environment-based authentication
+  v_databricks_cli_path: "databricks"  # Path to Databricks CLI executable (local environments only)
+  v_databricks_config_profile: "TEST"  # Databricks config profile name (local environments only)
+  
+  # Databricks Bundle Configuration
+  v_databricks_yml_path: "{v_start_path}/databricks.yml"  # Path to databricks.yml file for bundle operations
+
+spark_conf_key_replacements:
+  - search_key: "spark.hadoop.fs.azure.account.key.azuesstqadbbigdata.dfs.core.windows.net"
+    target_key: "spark.sql.shuffle.partitions"
+    target_value: "{existing_value}\nspark.hadoop.fs.azure.account.key.${var.v_storage_account}.dfs.core.windows.net ${var.v_storage_account_secret}"
+
+path_replacement:
+  "^/Workspace/Repos/[^/]+/": "../"
+  "^/Repos/[^/]+/": "../"
+  "^/Workspace/": "../"
+  "^/Shared/": "../"
+  "^/": "../"
+
+value_replacements:
+  ${: $${
+  azuesstqadbbigdata.: ${var.v_storage_account}.
+  esazustpddbbigdata.: ${var.v_storage_account}.
+  '{{secrets/attmx-storage-secrets/storage-key}}': ${var.v_storage_account_secret}
+  AZURE_DLE_databricks_bigdatamx_qa: ${var.v_bigdata_group}
+  AZURE_DLE_databricks_bigdatamx_prod: ${var.v_bigdata_group}
+  AZURE_DLE_databricks_SopDWH_prod: ${var.v_SopDWH_group}
+  AZURE_DLE_databricks_Admin_prod: ${var.v_admin_group}
+  7cdf5dcf-54d6-4a1c-ba10-7fd308054e87: ${var.v_owner_sp}
+  b8a66bbe-9d97-4f64-bd3d-9e4768835700: ${var.v_owner_sp}
+  qadl: ${var.v_catalog}
+  dlprod: ${var.v_catalog}
+
+workflows:
+  - job_name: qadl-HILO_9061-MATRIXX_XML
+    job_id: 560049247860047
+    is_existing: true
+    is_active: true
+  - job_name: SJ_DAB_Local_Test
+    job_id: 515643746440951
+    is_existing: true
+    is_active: true
