@@ -363,17 +363,21 @@ class DatabricksCliManager:
             os.makedirs(start_path, exist_ok=True)
             self.logger.debug(f"Created start_path directory: {start_path}")
         
-        # Path for temporary databricks.yml in the target directory
-        temp_databricks_yml = os.path.join(start_path, "databricks.yml")
-        temp_file_created = False
+        # Handle databricks.yml file placement
+        target_databricks_yml = os.path.join(start_path, "databricks.yml")
         
         try:
-            # Copy databricks.yml to target directory if it doesn't exist there
-            if not os.path.exists(temp_databricks_yml):
+            # Check if config path and start path are different
+            if os.path.abspath(os.path.dirname(databricks_yml_path)) != os.path.abspath(start_path):
+                # Copy/replace databricks.yml from config path to start path
                 import shutil
-                shutil.copy2(databricks_yml_path, temp_databricks_yml)
-                temp_file_created = True
-                self.logger.debug(f"Copied databricks.yml to target directory: {temp_databricks_yml}")
+                shutil.copy2(databricks_yml_path, target_databricks_yml)
+                if os.path.exists(target_databricks_yml):
+                    self.logger.debug(f"Replaced existing databricks.yml in target directory: {target_databricks_yml}")
+                else:
+                    self.logger.debug(f"Copied databricks.yml to target directory: {target_databricks_yml}")
+            else:
+                self.logger.debug(f"databricks.yml already in target directory, no copy needed: {target_databricks_yml}")
             
             # Define the shell command - run from start_path directory
             command = f'''
@@ -407,11 +411,3 @@ class DatabricksCliManager:
         except Exception as e:
             self.logger.error(f"An error occurred while generating files: {e}")
             return str(e), "failed"
-        finally:
-            # Clean up temporary databricks.yml file if we created it
-            if temp_file_created and os.path.exists(temp_databricks_yml):
-                try:
-                    os.remove(temp_databricks_yml)
-                    self.logger.debug(f"Cleaned up temporary databricks.yml: {temp_databricks_yml}")
-                except Exception as cleanup_error:
-                    self.logger.warning(f"Failed to clean up temporary file {temp_databricks_yml}: {cleanup_error}")

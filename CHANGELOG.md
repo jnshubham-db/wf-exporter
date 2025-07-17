@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Bug fixes for future releases
 
+## [0.1.2] - 2025-07-17
+
+### Fixed
+- Fixed the logic to remove databricks yml
+- Handles the databricks.yml file more gracefully
+
 ## [0.1.1] - 2025-07-17
 
 ### Fixed
