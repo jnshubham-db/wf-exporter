@@ -11,7 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced wheel file handling and placement in required directories
 
 ### Fixed
-- Various bug fixes and improvements during development
+- Bug fixes for future releases
+
+## [0.1.1] - 2025-07-17
+
+### Fixed
+- Fixed authentication fallback in Databricks environment when Spark is not available
+- Now uses provided host and token parameters as fallback when Spark session is unavailable
+
 
 ## [0.1.0] - 2025-07-17
 ### Added
@@ -24,5 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI interface with configuration management
 - Comprehensive logging system
 
-[Unreleased]: https://github.com/yourusername/wf-exporter/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/yourusername/wf-exporter/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/yourusername/wf-exporter/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/yourusername/wf-exporter/releases/tag/v0.1.0 

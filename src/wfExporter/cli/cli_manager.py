@@ -209,7 +209,7 @@ class DatabricksCliManager:
         if self.environment_type == 'local':
             return self._setup_local_authentication(databricks_host, databricks_token)
         else:
-            return self._setup_databricks_authentication()
+            return self._setup_databricks_authentication(databricks_host, databricks_token)
     
     def _setup_local_authentication(self, databricks_host: str = None, databricks_token: str = None) -> bool:
         """
@@ -249,35 +249,54 @@ class DatabricksCliManager:
             self.logger.error(f"Error setting up local authentication: {str(e)}")
             return False
     
-    def _setup_databricks_authentication(self) -> bool:
+    def _setup_databricks_authentication(self, databricks_host: str = None, databricks_token: str = None) -> bool:
         """
-        Set up authentication for Databricks environment using runtime context.
+        Set up authentication for Databricks environment using runtime context or provided credentials.
+        
+        Args:
+            databricks_host: Databricks workspace URL (fallback if Spark not available)
+            databricks_token: Databricks access token (fallback if Spark not available)
         
         Returns:
             bool: True if authentication setup successful, False otherwise
         """
-        try:     
-            if not spark:
-                self.logger.error("No active Spark session found in Databricks environment")
+        try:
+            # Try to get Spark session and use runtime authentication
+            try:
+                if spark and hasattr(spark, 'conf'):
+                    # Get the Databricks workspace URL
+                    workspace_url = spark.conf.get('spark.databricks.workspaceUrl')
+                    url = f"https://{workspace_url}"
+                    
+                    # Get the Databricks API token using dbutils
+                    try:
+                        token = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()
+                        
+                        # Set Databricks credentials using environment variables
+                        os.environ["DATABRICKS_HOST"] = url
+                        os.environ["DATABRICKS_TOKEN"] = token
+                        
+                        self.logger.info(f"Authentication configured with Databricks workspace: {url}")
+                        return True
+                        
+                    except Exception as token_error:
+                        self.logger.warning(f"Failed to get API token from Databricks context: {str(token_error)}")
+                        # Fall through to use provided credentials
+                        
+            except Exception as spark_error:
+                self.logger.warning(f"No active Spark session found: {str(spark_error)}")
+                # Fall through to use provided credentials
+            
+            # Fallback: Use provided host and token if Spark authentication failed
+            if databricks_host and databricks_token:
+                os.environ["DATABRICKS_HOST"] = databricks_host
+                os.environ["DATABRICKS_TOKEN"] = databricks_token
+                self.logger.info(f"Authentication configured with provided credentials: {databricks_host}")
+                return True
+            else:
+                self.logger.error("No active Spark session found and no databricks_host/databricks_token provided")
+                self.logger.error("Please provide databricks_host and databricks_token parameters")
                 return False
-            
-            # Get the Databricks workspace URL
-            workspace_url = spark.conf.get('spark.databricks.workspaceUrl')
-            url = f"https://{workspace_url}"
-            
-            # Get the Databricks API token using dbutils
-            try:            
-                token = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()
-            except Exception as token_error:
-                self.logger.error(f"Failed to get API token from Databricks context: {str(token_error)}")
-                return False
-            
-            # Set Databricks credentials using environment variables
-            os.environ["DATABRICKS_HOST"] = url
-            os.environ["DATABRICKS_TOKEN"] = token
-            
-            self.logger.info(f"Authentication configured with Databricks workspace: {url}")
-            return True
             
         except Exception as e:
             self.logger.error(f"Error setting up Databricks authentication: {str(e)}")
