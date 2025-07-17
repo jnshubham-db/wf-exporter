@@ -31,6 +31,21 @@ jobs:
         VERSION=$(poetry version --short)
         echo "tag=v$VERSION" >> $GITHUB_OUTPUT
         echo "wheel=wfexporter-$VERSION-py3-none-any.whl" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        
+    - name: Check if release exists
+      id: release_check
+      run: |
+        TAG="v${{ steps.version.outputs.version }}"
+        if gh release view $TAG >/dev/null 2>&1; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "⚠️ Release $TAG already exists!"
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "✅ Release $TAG is new"
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
     - name: Extract changelog
       id: changelog
@@ -54,10 +69,27 @@ jobs:
       
     - name: Create release
       uses: softprops/action-gh-release@v1
+      if: steps.release_check.outputs.exists == 'false'
       with:
         tag_name: ${{ steps.version.outputs.tag }}
         name: ${{ steps.version.outputs.tag }}
-        files: dist/${{ steps.version.outputs.wheel }}
+        files: |
+          dist/${{ steps.version.outputs.wheel }}
+          dist/*.tar.gz
+          README.md
+          CHANGELOG.md
+          config/config.yml
+          config/databricks.yml
         body_path: current_changelog.md
+        
+    - name: Release already exists
+      if: steps.release_check.outputs.exists == 'true'
+      run: |
+        echo "🚨 Release ${{ steps.version.outputs.tag }} already exists!"
+        echo "To create a new release:"
+        echo "1. Update version: poetry version patch"
+        echo "2. Update CHANGELOG.md"
+        echo "3. Commit and push to main"
+        exit 1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
