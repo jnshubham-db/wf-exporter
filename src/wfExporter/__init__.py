@@ -12,7 +12,9 @@ Features:
 """
 
 # Main interface
-from .core.databricks_exporter import main, cli_main, DatabricksExporter
+from .main import main
+from .core.databricks_exporter import DatabricksExporter
+from .cli_entry import cli_main
 
 # Individual modules for advanced usage
 from .logging import LogManager
@@ -22,7 +24,7 @@ from .processing import YamlSerializer, ExportFileHandler
 from .config import ConfigManager
 
 # Version information
-__version__ = "1.0.0"
+__version__ = "1.0.6"
 __author__ = "Databricks Workflow Exporter Team"
 
 # Public API
@@ -39,4 +41,7 @@ __all__ = [
     'YamlSerializer',
     'ExportFileHandler',
     'ConfigManager',
+    
+    # Metadata
+    '__version__',
 ]

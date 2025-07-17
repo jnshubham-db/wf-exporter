@@ -12,9 +12,10 @@
 #   - No manual credentials needed
 
 initial_variables:
-  v_start_path: /Users/shubham.j/Documents/ATT/wf_exporter/wfExporter/wfexporter
+  v_start_path: /Users/shubham.j/Documents/ATT/wf_exporter/wf-exporter/wf-exporter/exports
   v_resource_key_job_id_mapping_csv_file_path: "{v_start_path}/bind_scripts/resource_key_job_id_mapping.csv"
   v_backup_jobs_yaml_path: "{v_start_path}/backup_jobs_yaml/"
+  v_log_directory_path: "{v_start_path}/logs"  # Directory for log files
   v_log_level: DEBUG  # Supported values: DEBUG, INFO, WARNING, ERROR, CRITICAL
   
   # CLI Configuration (Optional - for local environments)
@@ -23,7 +24,7 @@ initial_variables:
   v_databricks_config_profile: "TEST"  # Databricks config profile name (local environments only)
   
   # Databricks Bundle Configuration
-  v_databricks_yml_path: "{v_start_path}/databricks.yml"  # Path to databricks.yml file for bundle operations
+  v_databricks_yml_path: "/Users/shubham.j/Documents/ATT/wf_exporter/wf-exporter/wf-exporter/config/databricks.yml"  # Path to databricks.yml file for bundle operations
 
 spark_conf_key_replacements:
   - search_key: "spark.hadoop.fs.azure.account.key.azuesstqadbbigdata.dfs.core.windows.net"
