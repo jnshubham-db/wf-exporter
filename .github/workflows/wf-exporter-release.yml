@@ -32,11 +32,32 @@ jobs:
         echo "tag=v$VERSION" >> $GITHUB_OUTPUT
         echo "wheel=wfexporter-$VERSION-py3-none-any.whl" >> $GITHUB_OUTPUT
       
+    - name: Extract changelog
+      id: changelog
+      run: |
+        VERSION=$(poetry version --short)
+        # Extract the section for this version from CHANGELOG.md
+        if [ -f "CHANGELOG.md" ]; then
+          awk "/^## \[?$VERSION\]?/{flag=1; next} /^## /{flag=0} flag" CHANGELOG.md > current_changelog.md
+          # Check if we found any content
+          if [ -s current_changelog.md ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "No changelog entry found for version $VERSION" > current_changelog.md
+          fi
+        else
+          echo "found=false" >> $GITHUB_OUTPUT
+          echo "CHANGELOG.md file not found" > current_changelog.md
+        fi
+        echo "file=current_changelog.md" >> $GITHUB_OUTPUT
+      
     - name: Create release
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ steps.version.outputs.tag }}
         name: ${{ steps.version.outputs.tag }}
         files: dist/${{ steps.version.outputs.wheel }}
+        body_path: current_changelog.md
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
