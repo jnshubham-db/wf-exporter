@@ -1,0 +1,42 @@
+name: wf-exporter-release
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      
+    - name: Build package
+      run: poetry build
+      
+    - name: Get version
+      id: version
+      run: |
+        VERSION=$(poetry version --short)
+        echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+        echo "wheel=wfexporter-$VERSION-py3-none-any.whl" >> $GITHUB_OUTPUT
+      
+    - name: Create release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.tag }}
+        name: ${{ steps.version.outputs.tag }}
+        files: dist/${{ steps.version.outputs.wheel }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
