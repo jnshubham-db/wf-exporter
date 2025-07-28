@@ -162,6 +162,47 @@ class YamlSerializer:
                         yaml_data["resources"]["jobs"][job_resource_name]['tasks'][i]['notebook_task']['notebook_path'] = mapping_filtered_df[v_notebook_path]
             self.logger.debug("Successfully updated notebook paths")
             
+            # Update paths for all task types
+            self.logger.debug("Updating paths for all task types")
+            for i, task in enumerate(yaml_data["resources"]["jobs"][job_resource_name]['tasks']):
+                
+                # Update spark_python_task paths
+                if task.get('spark_python_task') is not None:
+                    python_file = task.get('spark_python_task').get('python_file')
+                    if python_file and python_file in mapping_filtered_df:
+                        yaml_data["resources"]["jobs"][job_resource_name]['tasks'][i]['spark_python_task']['python_file'] = mapping_filtered_df[python_file]
+                        self.logger.debug(f"Updated spark_python_task file: {python_file} -> {mapping_filtered_df[python_file]}")
+                
+                # Update sql_task paths
+                if task.get('sql_task') is not None:
+                    sql_task = task.get('sql_task')
+                    if sql_task.get('file') is not None:
+                        sql_file_path = sql_task.get('file').get('path')
+                        if sql_file_path and sql_file_path in mapping_filtered_df:
+                            yaml_data["resources"]["jobs"][job_resource_name]['tasks'][i]['sql_task']['file']['path'] = mapping_filtered_df[sql_file_path]
+                            self.logger.debug(f"Updated sql_task file: {sql_file_path} -> {mapping_filtered_df[sql_file_path]}")
+                
+                # Update libraries (whl files) for all task types
+                if task.get('libraries') is not None:
+                    for j, library in enumerate(task['libraries']):
+                        if library.get('whl') is not None:
+                            whl_path = library['whl']
+                            if whl_path in mapping_filtered_df:
+                                yaml_data["resources"]["jobs"][job_resource_name]['tasks'][i]['libraries'][j]['whl'] = mapping_filtered_df[whl_path]
+                                self.logger.debug(f"Updated library whl: {whl_path} -> {mapping_filtered_df[whl_path]}")
+            
+            # Update job-level environments (for serverless configurations)
+            if 'environments' in yaml_data["resources"]["jobs"][job_resource_name]:
+                self.logger.debug("Updating job-level environment dependencies")
+                for i, environment in enumerate(yaml_data["resources"]["jobs"][job_resource_name]['environments']):
+                    if environment.get('spec') and environment['spec'].get('dependencies'):
+                        for j, dependency in enumerate(environment['spec']['dependencies']):
+                            if isinstance(dependency, str) and dependency in mapping_filtered_df:
+                                yaml_data["resources"]["jobs"][job_resource_name]['environments'][i]['spec']['dependencies'][j] = mapping_filtered_df[dependency]
+                                self.logger.debug(f"Updated environment dependency: {dependency} -> {mapping_filtered_df[dependency]}")
+            
+            self.logger.debug("Successfully updated all task type paths")
+            
             self.logger.debug("Updating cluster conf in yaml file")
             try:
                 job_clusters = yaml_data["resources"]["jobs"][job_resource_name].get('job_clusters', [])

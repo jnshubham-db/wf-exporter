@@ -9,9 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Support for wheel (.whl) files with automatic directory management
 - Enhanced wheel file handling and placement in required directories
+- Added support for python script task, wheel file task and sql task
+- Added support for exporting py and sql files in respective directories
 
 ### Fixed
-- Bug fixes for future releases
+- Fixed bug related to yml detection and src file detection. Updated its logic.
 
 ## [0.1.2] - 2025-07-17
 

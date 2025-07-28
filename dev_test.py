@@ -8,7 +8,7 @@ from src.wfExporter import main, DatabricksExporter
 
 # Quick test
 try:
-    main('config/config.yml')
+    main('config.yml')
     
     print("✅ Development test passed!")
 except Exception as e:
