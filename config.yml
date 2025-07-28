@@ -1,0 +1,30 @@
+initial_variables:
+  v_start_path: /Users/shubham.j/Documents/ATT/wf-exporter-base/wf-exporter/exports
+  v_resource_key_job_id_mapping_csv_file_path: '{v_start_path}/bind_scripts/resource_key_job_id_mapping.csv'
+  v_backup_jobs_yaml_path: '{v_start_path}/backup_jobs_yaml/'
+  v_log_level: DEBUG
+  v_databricks_yml_path: /Users/shubham.j/Documents/ATT/wf-exporter-base/wf-exporter/databricks.yml
+  v_log_directory_path: '{v_start_path}/logs'
+  v_databricks_cli_path: "databricks"  # CLI executable path
+  v_databricks_config_profile: "DEFAULT"  # Profile name
+
+path_replacement:
+  ^/Workspace/Repos/[^/]+/: ../
+  ^/Repos/[^/]+/: ../
+  ^/Workspace/: ../
+  ^/Shared/: ../
+  ^/: ../
+
+value_replacements:
+  ${: $${
+
+workflows:
+- job_name: SJ_Sample_Job
+  job_id: 810105583362026
+  is_existing: true
+  is_active: false
+- job_name: SJ_Test_Export_DAB
+  job_id: 1101345305647523
+  is_existing: true
+  is_active: true
+  

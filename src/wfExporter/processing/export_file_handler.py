@@ -110,10 +110,16 @@ class ExportFileHandler:
         for pattern, replacement in self._get_path_prefixes():
             path = re.sub(pattern, replacement, path)
         
-        # Map the file name
-        base_name = os.path.basename(path)
-        base_name_with_extension = file_dict.get(base_name, '')
-        return path.replace(base_name, base_name_with_extension)
+        # Map the file name only if file_dict is provided and has a mapping
+        if file_dict:
+            base_name = os.path.basename(path)
+            base_name_with_extension = file_dict.get(base_name, '')
+            if base_name_with_extension:
+                # Only replace the filename at the end, not anywhere in the path
+                path_dir = os.path.dirname(path)
+                path = os.path.join(path_dir, base_name_with_extension)
+        
+        return path
     
     def move_files_to_directory(self, df: pd.DataFrame, job_id: str, start_path: str) -> Tuple[str, str]:
         """
@@ -135,8 +141,8 @@ class ExportFileHandler:
             
             # Iterate over each row in the filtered DataFrame
             for index, row in df.iterrows():
-                # Construct source and destination file paths
-                src_file_path = (row['src_directory']).replace('..', start_path)
+                # exported_file_path is the absolute path to the file after export
+                src_file_path = row['exported_file_path']
                 dest_file_path = (row['dest_directory']).replace('..', start_path)
 
                 self.logger.debug(f"Moving file {index+1}/{total_files}: {src_file_path} -> {dest_file_path}")
@@ -147,12 +153,12 @@ class ExportFileHandler:
                     os.makedirs(dest_dir)
                     self.logger.debug(f"Created directory: {dest_dir}")
                 
-                # Move the file if it exists in the source directory
-                if os.path.exists(src_file_path) and (row['src_directory'] != '../src/'):
+                # Move the file if it exists
+                if src_file_path and os.path.exists(src_file_path):
                     shutil.move(src_file_path, dest_file_path)
                     self.logger.debug(f"Successfully moved: {os.path.basename(src_file_path)}")
                 else:
-                    self.logger.warning(f"Source file coming as '../src/'. Check by comparing with src file_name if notebook_name mentioned correctly in Notebook_Path column: {row['Notebook_Path']}")
+                    self.logger.warning(f"Source file not found or path is empty for notebook: {row['Notebook_Path']}. Skipping move.")
                     files_not_moved += 1
             
             # Log summary
