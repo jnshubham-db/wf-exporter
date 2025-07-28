@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wfexporter"
-version = "0.2.1"
+version = "0.3.1"
 description = "Export Databricks workflows and DLT pipelines as YAML files with modular architecture"
 authors = ["Shubham Jain <shubham.j@databricks.com>"]
 readme = "README.md"

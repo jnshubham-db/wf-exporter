@@ -336,6 +336,93 @@ class DatabricksCliManager:
             self.is_authenticated = False
             return False
 
+    def generate_yaml_src_files_from_pipeline_id(self, pipeline_id: str, start_path: str, databricks_yml_path: str) -> Tuple[Union[List[str], str], str]:
+        """
+        Generates YAML and source files for a given Databricks pipeline ID.
+        
+        Args:
+            pipeline_id: The Databricks pipeline ID
+            start_path: Starting path for file generation (where files should be created)
+            databricks_yml_path: Path to the databricks.yml file from config
+            
+        Returns:
+            Tuple containing either list of file paths or error message, and status
+        """
+        self.logger.debug(f"Generating YAML and source files for pipeline ID: {pipeline_id}")
+        
+        # Verify databricks.yml exists at the configured path
+        if not os.path.exists(databricks_yml_path):
+            self.logger.error(f"databricks.yml not found at configured path: {databricks_yml_path}")
+            self.logger.error("Please ensure the databricks.yml file exists at the path specified in config: v_databricks_yml_path")
+            return f"databricks.yml not found at: {databricks_yml_path}", "failed"
+        
+        self.logger.debug(f"Using databricks.yml from: {databricks_yml_path}")
+        
+        # Ensure the start_path directory exists
+        if not os.path.exists(start_path):
+            os.makedirs(start_path, exist_ok=True)
+            self.logger.debug(f"Created start_path directory: {start_path}")
+        
+        # Handle databricks.yml file placement
+        target_databricks_yml = os.path.join(start_path, "databricks.yml")
+        
+        try:
+            # Check if config path and start path are different
+            if os.path.abspath(os.path.dirname(databricks_yml_path)) != os.path.abspath(start_path):
+                # Copy/replace databricks.yml from config path to start path
+                import shutil
+                shutil.copy2(databricks_yml_path, target_databricks_yml)
+                if os.path.exists(target_databricks_yml):
+                    self.logger.debug(f"Replaced existing databricks.yml in target directory: {target_databricks_yml}")
+                else:
+                    self.logger.debug(f"Copied databricks.yml to target directory: {target_databricks_yml}")
+            else:
+                self.logger.debug(f"databricks.yml already in target directory, no copy needed: {target_databricks_yml}")
+            
+            # Generate command for pipeline
+            command = [
+                self.cli_path,
+                "bundle", "generate", "pipeline",
+                "--existing-pipeline-id", str(pipeline_id),
+                "--force"
+            ]
+            
+            self.logger.debug(f"Executing command: {' '.join(command)}")
+            self.logger.debug(f"Working directory: {start_path}")
+            
+            # Execute the bundle generate pipeline command
+            result = subprocess.run(
+                command,
+                cwd=start_path,
+                capture_output=True,
+                text=True
+            )
+            
+            self.logger.debug(f"Command output: {result.stdout}")
+            self.logger.debug(f"Command stderr: {result.stderr}")
+            
+            if result.returncode == 0:
+                self.logger.info(f"Successfully generated pipeline bundle for pipeline ID: {pipeline_id}")
+                
+                # Find generated files in the start_path
+                generated_files = []
+                for root, dirs, files in os.walk(start_path):
+                    for file in files:
+                        if file.endswith(('.yml', '.yaml', '.py', '.sql', '.json')):
+                            generated_files.append(os.path.join(root, file))
+                
+                self.logger.debug(f"Found {len(generated_files)} generated files")
+                return generated_files, "success"
+            else:
+                error_msg = f"Pipeline bundle generation failed: {result.stderr}"
+                self.logger.error(error_msg)
+                return error_msg, "failed"
+                
+        except Exception as e:
+            error_msg = f"Error during pipeline bundle generation: {str(e)}"
+            self.logger.error(error_msg)
+            return error_msg, "failed"
+
     def generate_yaml_src_files_from_job_id(self, job_id: str, start_path: str, databricks_yml_path: str) -> Tuple[Union[List[str], str], str]:
         """
         Generates YAML and source files for a given Databricks job ID.

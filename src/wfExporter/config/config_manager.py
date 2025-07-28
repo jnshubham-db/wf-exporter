@@ -132,6 +132,96 @@ class ConfigManager:
         self.logger.debug(f"Found {len(active_jobs)} active jobs in configuration")
         return active_jobs
     
+    def get_global_export_libraries_flag(self) -> bool:
+        """
+        Get the global export_libraries flag from configuration.
+        
+        Returns:
+            bool: Global export_libraries setting (default: True)
+        """
+        global_settings = self.config_data.get("global_settings", {})
+        export_libraries = global_settings.get("export_libraries", True)
+        self.logger.debug(f"Global export_libraries flag: {export_libraries}")
+        return export_libraries
+    
+    def get_workflow_export_libraries_flag(self, job_id: str) -> bool:
+        """
+        Get the export_libraries flag for a specific workflow.
+        
+        Args:
+            job_id: The job ID to check
+            
+        Returns:
+            bool: Effective export_libraries setting for this workflow
+        """
+        # Get global setting first
+        global_flag = self.get_global_export_libraries_flag()
+        
+        # If global flag is False, it overrides all individual settings
+        if not global_flag:
+            self.logger.debug(f"Global export_libraries is False, overriding workflow {job_id} setting")
+            return False
+        
+        # Check workflow-specific setting
+        workflows_details = self.config_data.get("workflows", [])
+        for wf in workflows_details:
+            if str(wf.get('job_id', '')) == str(job_id):
+                workflow_flag = wf.get('export_libraries', True)  # Default to True if not specified
+                self.logger.debug(f"Workflow {job_id} export_libraries flag: {workflow_flag}")
+                return workflow_flag
+        
+        # Default to global setting if workflow not found
+        self.logger.debug(f"Workflow {job_id} not found, using global setting: {global_flag}")
+        return global_flag
+    
+    def get_active_pipelines(self) -> List[Tuple[str, str]]:
+        """
+        Get active pipeline configurations from config.
+        
+        Returns:
+            List of tuples containing (pipeline_id, status) for active pipelines
+        """
+        pipelines_details = self.config_data.get("pipelines", [])
+        
+        active_pipelines = []
+        for pipeline in pipelines_details:
+            if pipeline.get('is_active', '') == True:
+                is_existing = "Existing" if pipeline.get('is_existing', '') == True else "New"
+                active_pipelines.append((pipeline.get('pipeline_id', ''), is_existing))
+        
+        self.logger.debug(f"Found {len(active_pipelines)} active pipelines in configuration")
+        return active_pipelines
+    
+    def get_pipeline_export_libraries_flag(self, pipeline_id: str) -> bool:
+        """
+        Get the export_libraries flag for a specific pipeline.
+        
+        Args:
+            pipeline_id: The pipeline ID to check
+            
+        Returns:
+            bool: Effective export_libraries setting for this pipeline
+        """
+        # Get global setting first
+        global_flag = self.get_global_export_libraries_flag()
+        
+        # If global flag is False, it overrides all individual settings
+        if not global_flag:
+            self.logger.debug(f"Global export_libraries is False, overriding pipeline {pipeline_id} setting")
+            return False
+        
+        # Check pipeline-specific setting
+        pipelines_details = self.config_data.get("pipelines", [])
+        for pipeline in pipelines_details:
+            if str(pipeline.get('pipeline_id', '')) == str(pipeline_id):
+                pipeline_flag = pipeline.get('export_libraries', True)  # Default to True if not specified
+                self.logger.debug(f"Pipeline {pipeline_id} export_libraries flag: {pipeline_flag}")
+                return pipeline_flag
+        
+        # Default to global setting if pipeline not found
+        self.logger.debug(f"Pipeline {pipeline_id} not found, using global setting: {global_flag}")
+        return global_flag
+    
     def get_initial_paths(self) -> Tuple[str, str, str, str, str]:
         """
         Get initial path variables and CLI configuration from config.

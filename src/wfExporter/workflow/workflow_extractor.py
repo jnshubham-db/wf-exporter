@@ -223,6 +223,467 @@ class WorkflowExtractor:
         self.logger.debug(f"Retrieved {len(output)} permissions for job {job_id}")
         return output
     
+    def get_pipeline_acls(self, pipeline_id: str) -> List[Dict[str, str]]:
+        """
+        Retrieves and transforms pipeline permissions.
+        
+        Args:
+            pipeline_id: The Databricks pipeline ID to retrieve permissions for
+            
+        Returns:
+            List of dictionaries containing permission information
+        """
+        self.logger.debug(f"Retrieving pipeline permissions for pipeline ID: {pipeline_id}")
+        
+        try:
+            # Get pipeline permissions using the SDK
+            permissions = self.client.permissions.get(
+                request_object_type="pipelines", 
+                request_object_id=pipeline_id  # Pipeline ID is already a string
+            )
+            
+            output = []
+            for acl in permissions.access_control_list:
+                # Skip admins group 
+                if acl.group_name == 'admins':
+                    continue
+                    
+                # Extract permission level as a string
+                permission_level = acl.all_permissions[0].permission_level
+                # Convert enum to string
+                if hasattr(permission_level, 'value'):
+                    permission_level = permission_level.value
+                
+                # Add entry based on type (user, group, or service principal)
+                if acl.user_name:
+                    output.append({
+                        'user_name': acl.user_name,
+                        'level': permission_level
+                    })
+                elif acl.group_name:
+                    output.append({
+                        'group_name': acl.group_name,
+                        'level': permission_level
+                    })
+                elif acl.service_principal_name:
+                    output.append({
+                        'service_principal_name': acl.service_principal_name,
+                        'level': permission_level
+                    })
+            
+            self.logger.debug(f"Retrieved {len(output)} permissions for pipeline {pipeline_id}")
+            return output
+            
+        except Exception as e:
+            self.logger.warning(f"Error retrieving pipeline permissions for {pipeline_id}: {e}")
+            return []
+    
+    def get_pipeline_workflow_tasks(self, pipeline_id: str) -> List[Dict[str, Any]]:
+        """
+        Retrieves the pipeline library definitions for a given pipeline ID.
+        Handles both legacy pipelines and lakeflow pipelines with root folders.
+        
+        Args:
+            pipeline_id: The Databricks pipeline ID to retrieve libraries for
+            
+        Returns:
+            List of dictionaries containing pipeline library information
+        """
+        self.logger.debug(f"Retrieving pipeline libraries for pipeline ID: {pipeline_id}")
+        
+        # Get pipeline details using the SDK
+        pipeline_details = self.client.pipelines.get(pipeline_id=pipeline_id)
+        
+        # Debug: Log pipeline spec structure
+        if hasattr(pipeline_details, 'spec'):
+            self.logger.debug(f"Pipeline spec attributes: {dir(pipeline_details.spec)}")
+            if hasattr(pipeline_details.spec, 'name'):
+                self.logger.debug(f"Pipeline name: {pipeline_details.spec.name}")
+            if hasattr(pipeline_details.spec, 'libraries'):
+                self.logger.debug(f"Pipeline has {len(pipeline_details.spec.libraries)} libraries")
+        
+        all_libraries = []
+        
+        # Check for root folder to determine pipeline type
+        root_folder = None
+        if hasattr(pipeline_details, 'spec'):
+            # Check for root_path in pipeline spec
+            if hasattr(pipeline_details.spec, 'configuration') and pipeline_details.spec.configuration:
+                # Root path might be in configuration
+                self.logger.debug(f"Pipeline configuration keys: {list(pipeline_details.spec.configuration.keys())}")
+                for key, value in pipeline_details.spec.configuration.items():
+                    self.logger.debug(f"Configuration key: {key} = {value}")
+                    if 'root' in key.lower() and 'path' in key.lower():
+                        root_folder = value
+                        self.logger.debug(f"Found root_path in configuration: {key} = {value}")
+                        break
+            
+            # Also check if there's a direct root_path attribute
+            if hasattr(pipeline_details.spec, 'root_path'):
+                root_folder = pipeline_details.spec.root_path
+                self.logger.debug(f"Found direct root_path attribute: {root_folder}")
+        
+        pipeline_type = "lakeflow" if root_folder else "legacy"
+        self.logger.info(f"Detected pipeline type: {pipeline_type}" + (f" with root path: {root_folder}" if root_folder else ""))
+        
+        if pipeline_type == "lakeflow":
+            # For lakeflow pipelines with root folder
+            all_libraries.append({
+                'Pipeline_Name': getattr(pipeline_details.spec, 'name', f"pipeline_{pipeline_id}"),
+                'PipelineId': pipeline_id,
+                'Library_Key': 'root_path',
+                'Library_Type': 'root_path',
+                'Root_Path': root_folder,
+                'Notebook_Path': None,
+                'Notebook_Source': 'WORKSPACE',
+                'Python_File': None,
+                'SQL_File': None,
+                'Glob_Pattern': None,
+                'Glob_Files': [],
+                'Libraries': [],
+                'Environment_Key': None
+            })
+            
+            # Check individual notebooks - only add if they're outside the root folder
+            if hasattr(pipeline_details.spec, 'libraries'):
+                self.logger.debug(f"Processing {len(pipeline_details.spec.libraries)} libraries for lakeflow pipeline")
+                for i, lib in enumerate(pipeline_details.spec.libraries):
+                    self.logger.debug(f"Library {i}: {dir(lib)}")
+                    if hasattr(lib, 'notebook') and lib.notebook:
+                        notebook_path = getattr(lib.notebook, 'path', None)
+                        self.logger.debug(f"Found notebook library: {notebook_path}")
+                        if notebook_path and not notebook_path.startswith(root_folder):
+                            # Notebook is outside root folder, add it for individual download
+                            lib_info = {
+                                'Pipeline_Name': getattr(pipeline_details.spec, 'name', f"pipeline_{pipeline_id}"),
+                                'PipelineId': pipeline_id,
+                                'Library_Key': f"external_notebook_{len(all_libraries)}",
+                                'Library_Type': 'external_notebook',
+                                'Root_Path': None,
+                                'Notebook_Path': notebook_path,
+                                'Notebook_Source': 'WORKSPACE',
+                                'Python_File': notebook_path if notebook_path.endswith('.py') else None,
+                                'SQL_File': notebook_path if notebook_path.endswith('.sql') else None,
+                                'Glob_Pattern': None,
+                                'Glob_Files': [],
+                                'Libraries': [],
+                                'Environment_Key': None
+                            }
+                            all_libraries.append(lib_info)
+                            self.logger.debug(f"Added external notebook (outside root folder): {notebook_path}")
+                        else:
+                            self.logger.debug(f"Skipping notebook (inside root folder): {notebook_path}")
+                    else:
+                        self.logger.debug(f"Library {i} is not a notebook library: {type(lib)}")
+            else:
+                self.logger.debug("No libraries found in lakeflow pipeline spec")
+        
+        else:
+            # For legacy pipelines without root folder - process all libraries individually
+            if hasattr(pipeline_details, 'spec') and hasattr(pipeline_details.spec, 'libraries'):
+                for lib in pipeline_details.spec.libraries:
+                    lib_info = {
+                        'Pipeline_Name': getattr(pipeline_details.spec, 'name', f"pipeline_{pipeline_id}"),
+                        'PipelineId': pipeline_id,
+                        'Library_Key': f"library_{len(all_libraries)}",
+                        'Library_Type': None,
+                        'Root_Path': None,
+                        'Notebook_Path': None,
+                        'Notebook_Source': 'WORKSPACE',
+                        'Python_File': None,
+                        'SQL_File': None,
+                        'Glob_Pattern': None,
+                        'Glob_Files': [],
+                        'Libraries': [],
+                        'Environment_Key': None
+                    }
+                    
+                    # Extract notebook library information
+                    if hasattr(lib, 'notebook') and lib.notebook:
+                        lib_info['Library_Type'] = 'notebook_library'
+                        lib_info['Notebook_Path'] = getattr(lib.notebook, 'path', None)
+                        
+                        # Determine file type from path
+                        if lib_info['Notebook_Path']:
+                            if lib_info['Notebook_Path'].endswith('.py'):
+                                lib_info['Python_File'] = lib_info['Notebook_Path']
+                            elif lib_info['Notebook_Path'].endswith('.sql'):
+                                lib_info['SQL_File'] = lib_info['Notebook_Path']
+                    
+                    # Extract glob library information
+                    elif hasattr(lib, 'glob') and lib.glob:
+                        lib_info['Library_Type'] = 'glob_library'
+                        
+                        # Get the glob pattern
+                        if hasattr(lib.glob, 'include'):
+                            if isinstance(lib.glob.include, str):
+                                lib_info['Glob_Pattern'] = lib.glob.include
+                            elif isinstance(lib.glob.include, list):
+                                # If multiple patterns, create separate entries
+                                for pattern in lib.glob.include:
+                                    pattern_lib_info = lib_info.copy()
+                                    pattern_lib_info['Library_Key'] = f"library_{len(all_libraries)}_{pattern}"
+                                    pattern_lib_info['Glob_Pattern'] = pattern
+                                    
+                                    # Expand glob pattern to actual files
+                                    try:
+                                        matching_files = self._expand_glob_pattern(pattern)
+                                        pattern_lib_info['Glob_Files'] = matching_files
+                                        self.logger.debug(f"Glob pattern '{pattern}' expanded to {len(matching_files)} files")
+                                    except Exception as e:
+                                        self.logger.error(f"Error expanding glob pattern '{pattern}': {e}")
+                                        pattern_lib_info['Glob_Files'] = []
+                                    
+                                    all_libraries.append(pattern_lib_info)
+                                continue  # Skip the main append since we added individual patterns
+                        
+                        # Expand glob pattern to actual files for single pattern
+                        if lib_info['Glob_Pattern']:
+                            try:
+                                matching_files = self._expand_glob_pattern(lib_info['Glob_Pattern'])
+                                lib_info['Glob_Files'] = matching_files
+                                self.logger.debug(f"Glob pattern '{lib_info['Glob_Pattern']}' expanded to {len(matching_files)} files")
+                            except Exception as e:
+                                self.logger.error(f"Error expanding glob pattern '{lib_info['Glob_Pattern']}': {e}")
+                                lib_info['Glob_Files'] = []
+                    
+                    # Extract file library information (for wheel files, etc.)
+                    elif hasattr(lib, 'file') and lib.file:
+                        lib_info['Library_Type'] = 'file_library'
+                        file_path = getattr(lib.file, 'path', None)
+                        if file_path:
+                            if file_path.endswith('.whl'):
+                                lib_info['Libraries'].append({
+                                    'type': 'whl',
+                                    'path': file_path
+                                })
+                            elif file_path.endswith('.jar'):
+                                lib_info['Libraries'].append({
+                                    'type': 'jar',
+                                    'path': file_path
+                                })
+                            elif file_path.endswith('.py'):
+                                lib_info['Python_File'] = file_path
+                            elif file_path.endswith('.sql'):
+                                lib_info['SQL_File'] = file_path
+                    
+                    # Extract jar library information
+                    elif hasattr(lib, 'jar') and lib.jar:
+                        lib_info['Library_Type'] = 'jar_library'
+                        jar_path = lib.jar
+                        if isinstance(jar_path, str) and jar_path.strip():
+                            lib_info['Libraries'].append({
+                                'type': 'jar',
+                                'path': jar_path
+                            })
+                    
+                    # Extract whl library information
+                    elif hasattr(lib, 'whl') and lib.whl:
+                        lib_info['Library_Type'] = 'whl_library'
+                        whl_path = lib.whl
+                        if isinstance(whl_path, str) and whl_path.strip():
+                            lib_info['Libraries'].append({
+                                'type': 'whl',
+                                'path': whl_path
+                            })
+                    
+                    all_libraries.append(lib_info)
+        
+        # Also check for pipeline-level environment dependencies (for both types)
+        if (hasattr(pipeline_details, 'spec') and 
+            hasattr(pipeline_details.spec, 'environment') and 
+            hasattr(pipeline_details.spec.environment, 'dependencies')):
+            
+            env_info = {
+                'Pipeline_Name': getattr(pipeline_details.spec, 'name', f"pipeline_{pipeline_id}"),
+                'PipelineId': pipeline_id,
+                'Library_Key': f"environment_dependencies",
+                'Library_Type': 'environment_dependencies',
+                'Root_Path': None,
+                'Notebook_Path': None,
+                'Notebook_Source': None,
+                'Python_File': None,
+                'SQL_File': None,
+                'Glob_Pattern': None,
+                'Glob_Files': [],
+                'Libraries': [],
+                'Environment_Key': 'pipeline_environment'
+            }
+            
+            for dep in pipeline_details.spec.environment.dependencies:
+                if isinstance(dep, str) and dep.strip():
+                    if dep.endswith('.whl'):
+                        env_info['Libraries'].append({
+                            'type': 'whl',
+                            'path': dep
+                        })
+                    elif dep.endswith('.jar'):
+                        env_info['Libraries'].append({
+                            'type': 'jar', 
+                            'path': dep
+                        })
+            
+            if env_info['Libraries']:  # Only add if there are libraries
+                all_libraries.append(env_info)
+        
+        self.logger.debug(f"Retrieved {len(all_libraries)} libraries for pipeline {pipeline_id}")
+        return all_libraries
+    
+    def _expand_glob_pattern(self, pattern: str) -> List[str]:
+        """
+        Expand a glob pattern to actual file paths using workspace.list API.
+        
+        Args:
+            pattern: Glob pattern (e.g., "/Workspace/Users/user/folder/*")
+            
+        Returns:
+            List of matching file paths
+        """
+        try:
+            import fnmatch
+            
+            # Extract the base directory from the pattern
+            if '*' in pattern:
+                base_path = pattern.split('*')[0].rstrip('/')
+            else:
+                # If no wildcard, return the pattern itself if it's a valid file
+                return [pattern]
+            
+            self.logger.debug(f"Expanding glob pattern '{pattern}' from base path: {base_path}")
+            
+            matching_files = []
+            
+            try:
+                # List workspace contents recursively
+                workspace_objects = self.client.workspace.list(base_path, recursive=True)
+                
+                for obj in workspace_objects:
+                    if hasattr(obj, 'path') and hasattr(obj, 'object_type'):
+                        obj_path = obj.path
+                        obj_type = obj.object_type
+                        
+                        # Only include files (not directories) - handle both enum and string values
+                        if (hasattr(obj_type, 'value') and obj_type.value in ['FILE', 'NOTEBOOK']) or str(obj_type) in ['FILE', 'NOTEBOOK']:
+                            # Check if the path matches the pattern
+                            if fnmatch.fnmatch(obj_path, pattern):
+                                matching_files.append(obj_path)
+                                self.logger.debug(f"Glob match: {obj_path}")
+                
+            except Exception as e:
+                self.logger.error(f"Error listing workspace contents for pattern {pattern}: {e}")
+                return []
+            
+            self.logger.debug(f"Glob pattern '{pattern}' expanded to {len(matching_files)} files")
+            return matching_files
+            
+        except Exception as e:
+            self.logger.error(f"Error expanding glob pattern {pattern}: {e}")
+            return []
+    
+    def download_root_folder(self, root_folder_path: str, local_directory: str) -> List[Dict[str, Any]]:
+        """
+        Download entire root folder recursively from Databricks workspace.
+        
+        Args:
+            root_folder_path: Path to the root folder in workspace
+            local_directory: Local directory to save the folder structure
+            
+        Returns:
+            List of download results for each file in the folder
+        """
+        try:
+            self.logger.debug(f"Downloading root folder: {root_folder_path} to {local_directory}")
+            
+            downloaded_files = []
+            
+            # First, check if the root folder exists and get its status
+            try:
+                folder_status = self.client.workspace.get_status(root_folder_path)
+                self.logger.debug(f"Root folder status: {folder_status}")
+                if folder_status.object_type.value != 'DIRECTORY':
+                    self.logger.warning(f"Root path {root_folder_path} is not a directory: {folder_status.object_type}")
+                    return []
+            except Exception as e:
+                self.logger.error(f"Root folder does not exist or cannot be accessed: {root_folder_path} - {e}")
+                return []
+            
+            # List all files in the root folder recursively
+            try:
+                self.logger.debug(f"Listing workspace objects in {root_folder_path} recursively...")
+                workspace_objects = list(self.client.workspace.list(root_folder_path, recursive=True))
+                self.logger.debug(f"Found {len(workspace_objects)} objects in root folder")
+                
+                # Debug: log first few objects
+                for i, obj in enumerate(workspace_objects[:5]):  # Log first 5 objects
+                    self.logger.debug(f"Object {i}: path={getattr(obj, 'path', 'N/A')}, type={getattr(obj, 'object_type', 'N/A')}")
+                
+                if len(workspace_objects) > 5:
+                    self.logger.debug(f"... and {len(workspace_objects) - 5} more objects")
+                
+                for obj in workspace_objects:
+                    if hasattr(obj, 'path') and hasattr(obj, 'object_type'):
+                        obj_path = obj.path
+                        obj_type = obj.object_type
+                        
+                        self.logger.debug(f"Processing object: {obj_path} (type: {obj_type})")
+                        
+                        # Only process files (not directories) - handle both enum and string values
+                        if (hasattr(obj_type, 'value') and obj_type.value in ['FILE', 'NOTEBOOK']) or str(obj_type) in ['FILE', 'NOTEBOOK']:
+                            try:
+                                # Calculate relative path within the root folder
+                                relative_path = os.path.relpath(obj_path, root_folder_path)
+                                self.logger.debug(f"Relative path: {relative_path}")
+                                
+                                # Create local directory structure
+                                local_file_dir = os.path.join(local_directory, os.path.dirname(relative_path))
+                                os.makedirs(local_file_dir, exist_ok=True)
+                                self.logger.debug(f"Created local directory: {local_file_dir}")
+                                
+                                # Determine artifact type
+                                artifact_type = 'py' if obj_path.endswith('.py') else 'sql' if obj_path.endswith('.sql') else 'notebook'
+                                
+                                # Download the file
+                                local_file_path = os.path.join(local_file_dir, os.path.basename(obj_path))
+                                
+                                self.logger.debug(f"Downloading {obj_path} to {local_file_path}")
+                                success, error_msg = self._download_workspace_file(obj_path, local_file_path, artifact_type)
+                                
+                                downloaded_files.append({
+                                    'original_path': obj_path,
+                                    'local_path': local_file_path if success else '',
+                                    'relative_path': relative_path,
+                                    'success': success,
+                                    'error_message': error_msg if not success else '',
+                                    'artifact_type': artifact_type
+                                })
+                                
+                                if success:
+                                    self.logger.debug(f"Downloaded root folder file: {obj_path} -> {local_file_path}")
+                                else:
+                                    self.logger.warning(f"Failed to download root folder file {obj_path}: {error_msg}")
+                                    
+                            except Exception as e:
+                                self.logger.error(f"Error processing root folder file {obj_path}: {e}")
+                                downloaded_files.append({
+                                    'original_path': obj_path,
+                                    'success': False,
+                                    'error_message': str(e),
+                                    'artifact_type': 'unknown'
+                                })
+                
+            except Exception as e:
+                self.logger.error(f"Error listing root folder contents {root_folder_path}: {e}")
+                return []
+            
+            successful_downloads = [f for f in downloaded_files if f.get('success', False)]
+            self.logger.info(f"Root folder download completed: {len(successful_downloads)}/{len(downloaded_files)} files downloaded successfully")
+            
+            return downloaded_files
+            
+        except Exception as e:
+            self.logger.error(f"Error downloading root folder {root_folder_path}: {e}")
+            return []
+    
     def export_artifact(self, artifact_path: str, local_directory: str, artifact_type: str = 'auto') -> Tuple[bool, str, str]:
         """
         Export an artifact from Databricks to local filesystem.
@@ -274,6 +735,11 @@ class WorkflowExtractor:
                 
             elif artifact_path.startswith('/Volume'):
                 success, error_msg = self._download_volume_file(artifact_path, local_file_path)
+            
+            else:
+                # Default fallback: try workspace download for paths that don't start with /Workspace or /Volume
+                self.logger.debug(f"Path doesn't start with /Workspace or /Volume, trying workspace download: {artifact_path}")
+                success, error_msg = self._download_workspace_file(artifact_path, local_file_path, artifact_type)
             
             if success:
                 self.logger.info(f"Successfully exported {artifact_path} to {local_file_path}")
@@ -406,3 +872,63 @@ class WorkflowExtractor:
         
         self.logger.info(f"Exported {len([r for r in results if r['success']])} out of {len(artifacts)} artifacts successfully")
         return results 
+
+    def get_pipeline_details(self, pipeline_id: str) -> Optional[Any]:
+        """
+        Get pipeline details using the Databricks SDK.
+        
+        Args:
+            pipeline_id: The Databricks pipeline ID
+            
+        Returns:
+            Pipeline details object or None if not found
+        """
+        try:
+            self.logger.debug(f"Retrieving pipeline details for pipeline ID: {pipeline_id}")
+            pipeline_details = self.client.pipelines.get(pipeline_id=pipeline_id)
+            self.logger.debug(f"Successfully retrieved pipeline details for {pipeline_id}")
+            return pipeline_details
+        except Exception as e:
+            self.logger.error(f"Error retrieving pipeline details for {pipeline_id}: {e}")
+            return None
+    
+    def list_workspace_objects(self, path: str, recursive: bool = True) -> List[Any]:
+        """
+        List workspace objects using the Databricks SDK.
+        
+        Args:
+            path: Workspace path to list
+            recursive: Whether to list recursively
+            
+        Returns:
+            List of workspace objects
+        """
+        try:
+            self.logger.debug(f"Listing workspace objects at path: {path}")
+            objects = list(self.client.workspace.list(path, recursive=recursive))
+            self.logger.debug(f"Found {len(objects)} objects at {path}")
+            return objects
+        except Exception as e:
+            self.logger.error(f"Error listing workspace objects at {path}: {e}")
+            return []
+    
+    def export_artifacts_batch(self, artifacts: List[Dict[str, Any]], base_local_directory: str, 
+                              filter_by_type: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        """
+        Export multiple artifacts with optional type filtering (generalized version).
+        
+        Args:
+            artifacts: List of artifact dictionaries
+            base_local_directory: Base local directory for exports
+            filter_by_type: Optional list of artifact types to include (e.g., ['py', 'sql', 'whl'])
+            
+        Returns:
+            List of dictionaries with export results
+        """
+        if filter_by_type:
+            filtered_artifacts = [a for a in artifacts if a.get('type') in filter_by_type]
+            self.logger.debug(f"Filtered {len(artifacts)} artifacts to {len(filtered_artifacts)} by type: {filter_by_type}")
+        else:
+            filtered_artifacts = artifacts
+        
+        return self.export_multiple_artifacts(filtered_artifacts, base_local_directory) 

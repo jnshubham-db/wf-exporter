@@ -8,6 +8,9 @@ initial_variables:
   v_databricks_cli_path: "databricks"  # CLI executable path
   v_databricks_config_profile: "DEFAULT"  # Profile name
 
+global_settings:
+  export_libraries: true  # Global flag to control library export (.whl, .jar files)
+
 path_replacement:
   ^/Workspace/Repos/[^/]+/: ../
   ^/Repos/[^/]+/: ../
@@ -17,14 +20,35 @@ path_replacement:
 
 value_replacements:
   ${: $${
+  amtrak: "{var.catalog}"
 
 workflows:
 - job_name: SJ_Sample_Job
   job_id: 810105583362026
   is_existing: true
   is_active: false
+  export_libraries: true  # Override global setting for this workflow
 - job_name: SJ_Test_Export_DAB
   job_id: 1101345305647523
   is_existing: true
   is_active: true
+  export_libraries: true  # Override global setting for this workflow
+
+# Future pipeline support
+pipelines: 
+- pipeline_name: "sj_pipeline_export"
+  pipeline_id: d4623163-fa76-4fb3-a117-663851c9f32f
+  is_existing: true
+  is_active: true
+  export_libraries: false
+- pipeline_name: "amtrak_pipeline"
+  pipeline_id: 53bf93f1-5356-4f66-9db2-659aa9838388
+  is_existing: true
+  is_active: true
+  export_libraries: false
+#- pipeline_name: "Sample Pipeline"
+#  pipeline_id: "12345"
+#  is_existing: true
+#  is_active: false
+#  export_libraries: true  # Override global setting for this pipeline
   
