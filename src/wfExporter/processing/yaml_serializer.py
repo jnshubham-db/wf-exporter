@@ -57,23 +57,44 @@ class YamlSerializer:
                     style = '"'
             return super(YamlSerializer.CustomDumper, self).represent_scalar(tag, value, style)
     
-    def replace_keyword_in_values(self, data: Any, old_value: str, new_value: str) -> Any:
+    def replace_keyword_in_values(self, data: Any, old_value: str, new_value: str, current_key: str = None) -> Any:
         """
         Recursively replaces occurrences of old_value with new_value in a nested dictionary or list.
+        Excludes file path fields from replacement to preserve downloaded file paths.
         
         Args:
             data: The data structure to process
             old_value: The value to replace
             new_value: The replacement value
+            current_key: The current key being processed (for path exclusion)
             
         Returns:
             The processed data structure with replacements made
         """
+        # Define path fields that should be excluded from replacements
+        PATH_FIELDS = {
+            'notebook_path',  # notebook task paths
+            'python_file',    # spark python task paths  
+            'path',          # general path field (sql task file path, library paths, etc.)
+            'file'           # file references
+        }
+        
         if isinstance(data, dict):
-            return {key: self.replace_keyword_in_values(value, old_value, new_value) for key, value in data.items()}
+            result = {}
+            for key, value in data.items():
+                # Skip replacement for path-related fields
+                if key in PATH_FIELDS:
+                    result[key] = value  # Keep original path value without replacement
+                    self.logger.debug(f"Skipping replacement for path field: {key} = {value}")
+                else:
+                    result[key] = self.replace_keyword_in_values(value, old_value, new_value, key)
+            return result
         elif isinstance(data, list):
-            return [self.replace_keyword_in_values(item, old_value, new_value) for item in data]
+            return [self.replace_keyword_in_values(item, old_value, new_value, current_key) for item in data]
         elif isinstance(data, str):
+            # Only replace if we're not in a path field context
+            if current_key in {'notebook_path', 'python_file', 'path', 'file'}:
+                return data  # Keep original path
             return data.replace(old_value, new_value)
         else:
             return data
@@ -162,6 +183,47 @@ class YamlSerializer:
                         yaml_data["resources"]["jobs"][job_resource_name]['tasks'][i]['notebook_task']['notebook_path'] = mapping_filtered_df[v_notebook_path]
             self.logger.debug("Successfully updated notebook paths")
             
+            # Update paths for all task types
+            self.logger.debug("Updating paths for all task types")
+            for i, task in enumerate(yaml_data["resources"]["jobs"][job_resource_name]['tasks']):
+                
+                # Update spark_python_task paths
+                if task.get('spark_python_task') is not None:
+                    python_file = task.get('spark_python_task').get('python_file')
+                    if python_file and python_file in mapping_filtered_df:
+                        yaml_data["resources"]["jobs"][job_resource_name]['tasks'][i]['spark_python_task']['python_file'] = mapping_filtered_df[python_file]
+                        self.logger.debug(f"Updated spark_python_task file: {python_file} -> {mapping_filtered_df[python_file]}")
+                
+                # Update sql_task paths
+                if task.get('sql_task') is not None:
+                    sql_task = task.get('sql_task')
+                    if sql_task.get('file') is not None:
+                        sql_file_path = sql_task.get('file').get('path')
+                        if sql_file_path and sql_file_path in mapping_filtered_df:
+                            yaml_data["resources"]["jobs"][job_resource_name]['tasks'][i]['sql_task']['file']['path'] = mapping_filtered_df[sql_file_path]
+                            self.logger.debug(f"Updated sql_task file: {sql_file_path} -> {mapping_filtered_df[sql_file_path]}")
+                
+                # Update libraries (whl files) for all task types
+                if task.get('libraries') is not None:
+                    for j, library in enumerate(task['libraries']):
+                        if library.get('whl') is not None:
+                            whl_path = library['whl']
+                            if whl_path in mapping_filtered_df:
+                                yaml_data["resources"]["jobs"][job_resource_name]['tasks'][i]['libraries'][j]['whl'] = mapping_filtered_df[whl_path]
+                                self.logger.debug(f"Updated library whl: {whl_path} -> {mapping_filtered_df[whl_path]}")
+            
+            # Update job-level environments (for serverless configurations)
+            if 'environments' in yaml_data["resources"]["jobs"][job_resource_name]:
+                self.logger.debug("Updating job-level environment dependencies")
+                for i, environment in enumerate(yaml_data["resources"]["jobs"][job_resource_name]['environments']):
+                    if environment.get('spec') and environment['spec'].get('dependencies'):
+                        for j, dependency in enumerate(environment['spec']['dependencies']):
+                            if isinstance(dependency, str) and dependency in mapping_filtered_df:
+                                yaml_data["resources"]["jobs"][job_resource_name]['environments'][i]['spec']['dependencies'][j] = mapping_filtered_df[dependency]
+                                self.logger.debug(f"Updated environment dependency: {dependency} -> {mapping_filtered_df[dependency]}")
+            
+            self.logger.debug("Successfully updated all task type paths")
+            
             self.logger.debug("Updating cluster conf in yaml file")
             try:
                 job_clusters = yaml_data["resources"]["jobs"][job_resource_name].get('job_clusters', [])
@@ -211,3 +273,148 @@ class YamlSerializer:
         except Exception as e:
             self.logger.error(f"Error updating the YAML file: {str(e)}")
             return str(e), "failed" 
+
+    def load_update_dump_yaml_generic(self, workflow_manager: 'WorkflowExtractor', 
+                                     yml_file: str, modified_yml_file: str, 
+                                     resource_id: str, resource_name: str,
+                                     resource_type: str,  # 'job' or 'pipeline'
+                                     mapping_dict: Dict[str, str], 
+                                     replacements: Optional[Dict[str, str]] = None,
+                                     config_manager: Optional['ConfigManager'] = None,
+                                     backup_yaml_path: Optional[str] = None) -> Tuple[str, str]:
+        """
+        Generic method to load, update, and dump YAML files for both workflows and pipelines.
+        
+        Args:
+            workflow_manager: Workflow manager for retrieving permissions
+            yml_file: Path to the input YAML file
+            modified_yml_file: Path to the output YAML file
+            resource_id: The Databricks resource ID (job_id or pipeline_id)
+            resource_name: The resource name in the YAML
+            resource_type: Type of resource ('job' or 'pipeline')
+            mapping_dict: Dictionary mapping old paths to new paths
+            replacements: Dictionary of value replacements to apply
+            config_manager: Configuration manager for accessing transformations
+            
+        Returns:
+            Tuple of (error_message, status) - ("0", "success") if successful
+        """
+        try:
+            self.logger.debug(f"Loading and updating {resource_type} YAML file: {yml_file}")
+            
+            # Load YAML file
+            with open(yml_file, 'r', encoding='utf-8') as file:
+                yaml_data = yaml.safe_load(file)
+            
+            # Backup the original file to proper backup directory
+            if backup_yaml_path:
+                import shutil
+                # Ensure backup directory exists
+                if not os.path.exists(backup_yaml_path):
+                    os.makedirs(backup_yaml_path)
+                    self.logger.debug(f"Created backup directory: {backup_yaml_path}")
+                
+                # Create backup in the proper backup directory
+                backup_file = os.path.join(backup_yaml_path, os.path.basename(yml_file))
+                shutil.copy2(yml_file, backup_file)
+                self.logger.debug(f"Copied YAML file to backup directory: {backup_file}")
+            else:
+                # Fallback to old behavior if no backup path provided
+                import shutil
+                backup_file = yml_file.replace('.yml', '_backup.yml')
+                shutil.copy2(yml_file, backup_file)
+                self.logger.debug(f"Copied YAML file to backup directory: {backup_file}")
+            
+            if resource_type == 'job':
+                # Add permissions for jobs
+                self.logger.debug("Adding permissions to yaml file")
+                job_permissions = workflow_manager.get_job_acls(resource_id)
+                if job_permissions:
+                    yaml_data["resources"]["jobs"][resource_name]['permissions'] = job_permissions
+                    self.logger.debug("Permissions added successfully")
+                else:
+                    self.logger.debug("No permissions found to add")
+            elif resource_type == 'pipeline':
+                # Add permissions for pipeline
+                self.logger.debug("Adding permissions to pipeline yaml file")
+                pipeline_permissions = workflow_manager.get_pipeline_acls(resource_id)
+                if pipeline_permissions:
+                    yaml_data["resources"]["pipelines"][resource_name]['permissions'] = pipeline_permissions
+                    self.logger.debug("Pipeline permissions added successfully")
+                else:
+                    self.logger.debug("No pipeline permissions found to add")
+            
+            # Apply value replacements
+            if replacements:
+                self.logger.debug("Replacing keyword variables in yaml file")
+                # Apply string replacements to the entire YAML data (same as job processing)
+                for pattern, replacement in replacements.items():
+                    if not pattern.startswith(r'('):  # Skip regex patterns
+                        yaml_data = self.replace_keyword_in_values(yaml_data, pattern, replacement)
+                self.logger.debug("Keyword variables replaced successfully")
+            
+            # Replace null with none
+            self.logger.debug("Replacing null with none in yaml file")
+            yaml_content_str = yaml.dump(yaml_data, default_flow_style=False, sort_keys=False)
+            yaml_content_str = yaml_content_str.replace(': null', ': none')
+            yaml_data = yaml.safe_load(yaml_content_str)
+            self.logger.debug("Successfully replaced null with none")
+            
+            # Update paths based on mapping
+            if mapping_dict:
+                self.logger.debug(f"Updating paths in {resource_type} yaml file")
+                self.logger.debug(f"Path mappings: {mapping_dict}")
+                yaml_data = self._update_paths_recursively(yaml_data, mapping_dict, resource_type, resource_name)
+                self.logger.debug("Successfully updated paths")
+            
+            # Apply configuration transformations if available
+            if config_manager and resource_type == 'job':
+                self.logger.debug("Updating cluster conf in yaml file")
+                transformations = config_manager.get_spark_conf_transformations()
+                yaml_data = self._update_spark_conf_recursively(yaml_data, transformations, resource_name)
+                self.logger.debug("Successfully updated cluster conf")
+            
+            # Write updated YAML
+            self.logger.debug(f"Writing yaml file to {modified_yml_file}")
+            with open(modified_yml_file, 'w', encoding='utf-8') as file:
+                yaml.dump(yaml_data, file, default_flow_style=False, sort_keys=False)
+            
+            self.logger.info(f"Successfully processed {resource_type} YAML file: {modified_yml_file}")
+            return "0", "success"
+            
+        except Exception as e:
+            error_msg = f"Error processing {resource_type} YAML file: {str(e)}"
+            self.logger.error(error_msg)
+            return error_msg, "failed"
+    
+    def _update_paths_recursively(self, obj: Any, mapping_dict: Dict[str, str], 
+                                 resource_type: str, resource_name: str) -> Any:
+        """
+        Recursively update paths in YAML data structure.
+        
+        Args:
+            obj: YAML object (dict, list, or value)
+            mapping_dict: Dictionary mapping old paths to new paths
+            resource_type: Type of resource ('job' or 'pipeline')
+            resource_name: Resource name for logging
+            
+        Returns:
+            Updated YAML object
+        """
+        if isinstance(obj, dict):
+            updated_dict = {}
+            for key, value in obj.items():
+                if key == 'path' and isinstance(value, str) and value in mapping_dict:
+                    updated_dict[key] = mapping_dict[value]
+                    self.logger.debug(f"Updated {resource_type} path: {value} -> {mapping_dict[value]}")
+                else:
+                    updated_dict[key] = self._update_paths_recursively(value, mapping_dict, resource_type, resource_name)
+            return updated_dict
+        elif isinstance(obj, list):
+            return [self._update_paths_recursively(item, mapping_dict, resource_type, resource_name) for item in obj]
+        else:
+            # Check if this is a path value that needs updating
+            if isinstance(obj, str) and obj in mapping_dict:
+                self.logger.debug(f"Updated {resource_type} path: {obj} -> {mapping_dict[obj]}")
+                return mapping_dict[obj]
+            return obj 

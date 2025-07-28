@@ -6,6 +6,8 @@ Export Databricks workflows and DLT pipelines as YAML files with support for bot
 
 - **Automatic Environment Detection** - Works in both local and Databricks environments
 - **Multiple Authentication Methods** - Profile-based, environment variables, or auto-detection
+- **Dual Asset Type Support** - Process both workflows and pipelines in a single run
+- **Library Export Control** - Granular control over library artifact downloads
 - **Modular Architecture** - Clean, maintainable codebase with separated concerns
 - **Configurable Paths** - Customize output directories and log locations
 - **YAML Processing** - Advanced transformations and replacements
@@ -115,12 +117,25 @@ initial_variables:
   # Databricks bundle file path
   v_databricks_yml_path: "/path/to/config/databricks.yml"
 
+# Global settings (optional)
+global_settings:
+  export_libraries: true  # Global control for library artifact export
+
 # Define workflows to export
 workflows:
   - job_name: "My-Workflow"
     job_id: 123456789
     is_existing: true
     is_active: true
+    export_libraries: true  # Override global setting for this workflow
+    
+# Define pipelines to export (optional)
+pipelines:
+  - pipeline_name: "My-Pipeline"
+    pipeline_id: "pipeline_123456"
+    is_existing: true
+    is_active: true
+    export_libraries: false  # Override global setting for this pipeline
 
 # Value replacements in YAML files
 value_replacements:
@@ -131,6 +146,19 @@ path_replacement:
   "^/Workspace/Repos/[^/]+/": "../"
   "^/Repos/[^/]+/": "../"
 ```
+
+### New Configuration Features
+
+#### Library Export Control
+- **Global Setting**: `global_settings.export_libraries` controls library export for all assets
+- **Individual Override**: Each workflow/pipeline can override the global setting
+- **Hierarchy**: Global `false` overrides individual `true` settings (safety first)
+
+#### Dual Asset Processing
+- **Workflows**: Traditional Databricks job definitions
+- **Pipelines**: DLT (Delta Live Tables) pipeline definitions  
+- **Simultaneous Processing**: Both asset types can be processed in a single run
+- **Independent Control**: Each asset type can be enabled/disabled separately
 
 ### Configuration Options Explained
 
