@@ -954,9 +954,7 @@ class DatabricksExporter:
             replacements = self.config_manager.get_replacements()
             
             # The YAML file is updated in place.
-            # The YAML file is updated in place.
             output, outcome = self.yaml_processor.load_update_dump_yaml(
-                self.workflow_manager, yml_file_abs, yml_file_abs, job_id, job_resource_name, 
                 self.workflow_manager, yml_file_abs, yml_file_abs, job_id, job_resource_name, 
                 src_dest_mapping, replacements, self.config_manager)
             
