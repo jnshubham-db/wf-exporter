@@ -8,6 +8,9 @@ workflow definitions and permissions.
 import os
 import shutil
 from typing import Dict, List, Any, Optional, Tuple
+import os
+import shutil
+from typing import Dict, List, Any, Optional, Tuple
 from databricks.sdk import WorkspaceClient
 
 from ..logging.log_manager import LogManager
@@ -51,6 +54,7 @@ class WorkflowExtractor:
             
         Returns:
             List of dictionaries containing job task information for all task types
+            List of dictionaries containing job task information for all task types
         """
         self.logger.debug(f"Retrieving workflow tasks for job ID: {job_id}")
         
@@ -59,8 +63,28 @@ class WorkflowExtractor:
         
         all_tasks = []
         
+        
         if job_details.settings.tasks:
             for task in job_details.settings.tasks:
+                task_info = {
+                    'Job_Name': job_details.settings.name,
+                    'JobId': job_id,
+                    'Task_Key': task.task_key,
+                    'Task_Type': None,
+                    'Notebook_Path': None,
+                    'Notebook_Source': None,
+                    'Python_File': None,
+                    'SQL_File': None,
+                    'Python_Wheel_Entry_Point': None,
+                    'Python_Wheel_Package_Name': None,
+                    'Libraries': [],
+                    'Environment_Key': getattr(task, 'environment_key', None)
+                }
+                
+                # Extract notebook task information
+                if hasattr(task, 'notebook_task') and task.notebook_task:
+                    task_info['Task_Type'] = 'notebook_task'
+                    task_info['Notebook_Path'] = getattr(task.notebook_task, 'notebook_path', None)
                 task_info = {
                     'Job_Name': job_details.settings.name,
                     'JobId': job_id,
@@ -137,7 +161,91 @@ class WorkflowExtractor:
         if hasattr(job_details.settings, 'environments') and job_details.settings.environments:
             for env in job_details.settings.environments:
                 env_info = {
+                    task_info['Notebook_Source'] = source
+                
+                # Extract spark python task information
+                elif hasattr(task, 'spark_python_task') and task.spark_python_task:
+                    task_info['Task_Type'] = 'spark_python_task'
+                    task_info['Python_File'] = getattr(task.spark_python_task, 'python_file', None)
+                
+                # Extract python wheel task information
+                elif hasattr(task, 'python_wheel_task') and task.python_wheel_task:
+                    task_info['Task_Type'] = 'python_wheel_task'
+                    task_info['Python_Wheel_Entry_Point'] = getattr(task.python_wheel_task, 'entry_point', None)
+                    task_info['Python_Wheel_Package_Name'] = getattr(task.python_wheel_task, 'package_name', None)
+                
+                # Extract SQL task information
+                elif hasattr(task, 'sql_task') and task.sql_task:
+                    task_info['Task_Type'] = 'sql_task'
+                    if hasattr(task.sql_task, 'file') and task.sql_task.file:
+                        task_info['SQL_File'] = getattr(task.sql_task.file, 'path', None)
+                
+                # Extract libraries information (for .whl files)
+                if hasattr(task, 'libraries') and task.libraries:
+                    for lib in task.libraries:
+                        try:
+                            if hasattr(lib, 'whl') and lib.whl:
+                                # Ensure whl path is a string
+                                whl_path = lib.whl
+                                if isinstance(whl_path, str) and whl_path.strip():
+                                    task_info['Libraries'].append({
+                                        'type': 'whl',
+                                        'path': whl_path
+                                    })
+                                else:
+                                    self.logger.warning(f"Skipping invalid whl library path: {whl_path} (type: {type(whl_path)})")
+                            # Add other library types if needed (jar, pypi, etc.)
+                            elif hasattr(lib, 'jar') and lib.jar:
+                                jar_path = lib.jar
+                                if isinstance(jar_path, str) and jar_path.strip():
+                                    task_info['Libraries'].append({
+                                        'type': 'jar',
+                                        'path': jar_path
+                                    })
+                                else:
+                                    self.logger.warning(f"Skipping invalid jar library path: {jar_path} (type: {type(jar_path)})")
+                        except Exception as e:
+                            self.logger.error(f"Error processing library for task {task.task_key}: {e}")
+                            continue
+                
+                all_tasks.append(task_info)
+        
+        # Also check for job-level environments (for serverless jobs)
+        if hasattr(job_details.settings, 'environments') and job_details.settings.environments:
+            for env in job_details.settings.environments:
+                env_info = {
                     'Job_Name': job_details.settings.name,
+                    'JobId': job_id,
+                    'Task_Key': f"environment_{env.environment_key}",
+                    'Task_Type': 'job_environment',
+                    'Environment_Key': env.environment_key,
+                    'Libraries': [],
+                    'Notebook_Path': None,
+                    'Notebook_Source': None,
+                    'Python_File': None,
+                    'SQL_File': None,
+                    'Python_Wheel_Entry_Point': None,
+                    'Python_Wheel_Package_Name': None
+                }
+                
+                # Extract dependencies from environment spec
+                if hasattr(env, 'spec') and env.spec and hasattr(env.spec, 'dependencies'):
+                    for dep in env.spec.dependencies:
+                        try:
+                            # Dependencies in environments are typically file paths or package names
+                            if isinstance(dep, str) and dep.strip() and (dep.startswith('/') or dep.endswith('.whl')):
+                                env_info['Libraries'].append({
+                                    'type': 'whl',
+                                    'path': dep
+                                })
+                            else:
+                                self.logger.debug(f"Skipping environment dependency: {dep} (type: {type(dep)})")
+                        except Exception as e:
+                            self.logger.error(f"Error processing environment dependency: {e}")
+                            continue
+                
+                if env_info['Libraries']:  # Only add if there are libraries
+                    all_tasks.append(env_info)
                     'JobId': job_id,
                     'Task_Key': f"environment_{env.environment_key}",
                     'Task_Type': 'job_environment',

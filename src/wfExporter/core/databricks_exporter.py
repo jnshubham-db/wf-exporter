@@ -522,6 +522,7 @@ class DatabricksExporter:
             job_id: The job ID
             file_paths: List of generated file paths
             start_path: The base path for file operations
+            start_path: The base path for file operations
             
         Returns:
             DataFrame with file mapping information
@@ -710,6 +711,7 @@ class DatabricksExporter:
             self.logger.debug(f"Starting job processing for job ID: {job_id}")
 
             # Get workflow definition and job details (now includes all task types)
+            # Get workflow definition and job details (now includes all task types)
             workflow_definition = self.workflow_manager.get_job_workflow_tasks(job_id)
             
             if not workflow_definition:
@@ -725,6 +727,7 @@ class DatabricksExporter:
             # Backup existing files
             backup_file = self._clean_existing_files(start_path, job_name, backup=True)
             
+            # Generate YAML and source files using bundle generate (for notebooks only)
             # Generate YAML and source files using bundle generate (for notebooks only)
             self.logger.debug("Generating YAML and source files...")
             databricks_yml_path = self.config_manager.get_databricks_yml_path()
@@ -937,10 +940,12 @@ class DatabricksExporter:
             # Copy the file to yaml backup directory
             try:
                 shutil.copyfile(yml_file_abs, os.path.join(backup_yaml_path, os.path.basename(yml_file_abs)))
+                shutil.copyfile(yml_file_abs, os.path.join(backup_yaml_path, os.path.basename(yml_file_abs)))
                 self.logger.debug(f"Copied YAML file to backup directory: {yml_file_abs}")
             except Exception as e:
                 self.logger.error(f"Failed to copy YAML file: {e}")
                 self.logger.debug(f"Source: {yml_file_abs}")
+                self.logger.debug(f"Destination: {os.path.join(backup_yaml_path, os.path.basename(yml_file_abs))}")
                 self.logger.debug(f"Destination: {os.path.join(backup_yaml_path, os.path.basename(yml_file_abs))}")
                 return False, None
             
@@ -949,7 +954,9 @@ class DatabricksExporter:
             replacements = self.config_manager.get_replacements()
             
             # The YAML file is updated in place.
+            # The YAML file is updated in place.
             output, outcome = self.yaml_processor.load_update_dump_yaml(
+                self.workflow_manager, yml_file_abs, yml_file_abs, job_id, job_resource_name, 
                 self.workflow_manager, yml_file_abs, yml_file_abs, job_id, job_resource_name, 
                 src_dest_mapping, replacements, self.config_manager)
             
