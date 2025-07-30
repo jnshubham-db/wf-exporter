@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration - Databricks Workflow Manager{% endblock %}
+
+{% block content %}
+<div x-data="configManager" class="space-y-6">
+    <!-- Page Header -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 mb-2">Configuration Management</h1>
+            <p class="text-gray-600">Load, edit, and save your config.yml file from your Databricks workspace.</p>
+        </div>
+    </div>
+    
+    <!-- Config File Path Section -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Databricks Workspace Config Path</h2>
+        
+        <div class="space-y-4">
+            <div class="flex items-center space-x-4">
+                <label for="config-path" class="block text-sm font-medium text-gray-700 w-32">Workspace Path:</label>
+                <div class="flex-1">
+                    <input type="text" 
+                           x-model="configPath"
+                           :placeholder="configPlaceholder"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+            
+            <div class="flex space-x-3">
+                <button type="button" 
+                        @click="loadConfig"
+                        :disabled="isButtonDisabled('load')"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out">
+                    <span x-text="getButtonText('load', 'Load Config')"></span>
+                    <div x-show="buttons.load" class="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin ml-2"></div>
+                </button>
+            </div>
+            
+            <!-- Feedback Area -->
+            <div x-show="feedback.show" :class="feedbackClass" style="display: none;">
+                <div class="flex items-center justify-between">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg :class="feedbackIconClass" fill="currentColor" viewBox="0 0 20 20" x-html="feedbackIconSvg">
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p x-text="feedback.message" :class="feedbackMessageClass" class="text-sm font-medium"></p>
+                        </div>
+                    </div>
+                    <button @click="hideFeedback" class="ml-3 text-lg font-semibold hover:opacity-75">&times;</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Config Editor Section -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Config Editor</h2>
+        
+        <div class="space-y-4">
+            <!-- Syntax Highlighted Preview (shown when content is loaded) -->
+            <div x-show="configContent && !isEditing" class="border border-gray-300 rounded-md">
+                <pre class="language-yaml m-0 p-4 bg-gray-50 rounded-md overflow-auto" style="max-height: 400px;"><code x-text="configContent" class="language-yaml"></code></pre>
+                <div class="border-t border-gray-200 bg-gray-50 px-4 py-2 rounded-b-md">
+                    <button @click="isEditing = true" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                        Edit Configuration
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Editor (shown when editing or no content) -->
+            <div x-show="!configContent || isEditing" class="border border-gray-300 rounded-md">
+                <textarea x-model="configContent"
+                          rows="20" 
+                          placeholder="# Your Databricks workflow configuration will appear here
+# Example:
+workflows:
+  - job_name: data_processing_workflow
+    job_id: 123456789
+    is_existing: true
+    is_active: true
+export:
+  v_start_path: /Workspace/Shared/exports"
+                          class="font-mono text-sm leading-relaxed bg-gray-50 border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none transition-colors w-full px-4 py-3 rounded-md resize-none"
+                          @input="updateSyntaxHighlighting"></textarea>
+                <div x-show="isEditing" class="border-t border-gray-200 bg-gray-50 px-4 py-2 rounded-b-md">
+                    <button @click="isEditing = false" class="text-sm text-gray-600 hover:text-gray-800 font-medium mr-4">
+                        Preview
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Editor Actions -->
+            <div class="flex justify-between items-center">
+                <div class="flex space-x-2">
+                    <button type="button" 
+                            @click="validateConfig"
+                            :disabled="isButtonDisabled('validate')"
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out">
+                        <span x-text="getButtonText('validate', 'Validate YAML')"></span>
+                        <div x-show="buttons.validate" class="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin ml-2"></div>
+                    </button>
+                    <button type="button" 
+                            @click="saveConfig"
+                            :disabled="isButtonDisabled('save')"
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out">
+                        <span x-text="getButtonText('save', 'Save Config')"></span>
+                        <div x-show="buttons.save" class="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin ml-2"></div>
+                    </button>
+                    <button type="button" 
+                            @click="clearEditor"
+                            :disabled="isButtonDisabled('clear')"
+                            class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out">
+                        <span x-text="getButtonText('clear', 'Clear')"></span>
+                        <div x-show="buttons.clear" class="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin ml-2"></div>
+                    </button>
+                </div>
+                
+                <div class="text-sm text-gray-500">
+                    <span x-text="`Lines: ${stats.lines}`">Lines: 0</span> | 
+                    <span x-text="`Characters: ${stats.characters}`">Characters: 0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Navigation Section -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex justify-end">
+            <a href="{{ url_for('jobs.job_selection') }}" 
+               class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out transform hover:scale-105">
+                Next: Workflow Selection
+                <svg class="ml-2 -mr-1 w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </a>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Load Alpine.js configuration components -->
+<script src="{{ url_for('static', filename='js/alpine-config.js') }}"></script>
+{% endblock %} 

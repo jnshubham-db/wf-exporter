@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+
+{% block title %}Job Selection - Databricks Workflow Manager{% endblock %}
+
+{% block content %}
+<div class="space-y-6" x-data="jobsManager">
+    <!-- Page Header -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Databricks Job Selection</h1>
+        <p class="text-gray-600">Select Databricks jobs from your workspace to include in your workflow configuration.</p>
+        <div class="mt-2 text-sm">
+            <span class="text-green-600 bg-green-50 px-2 py-1 rounded">Connected to Databricks Workspace</span>
+        </div>
+    </div>
+    
+    <!-- Config File Status -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900 mb-2">Configuration File</h2>
+                <div x-show="configPath" class="space-y-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm font-medium text-gray-700">File:</span>
+                        <code x-text="configPath" class="text-sm bg-gray-100 px-2 py-1 rounded text-gray-800"></code>
+                    </div>
+                    <div x-show="configPreview" class="mt-3 space-y-3">
+                        <h3 class="text-sm font-medium text-gray-700 mb-2">Configuration Summary:</h3>
+                        
+                        <!-- Configuration Summary -->
+                        <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                                <div class="space-y-1">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Workflows:</span>
+                                        <span x-text="getWorkflowCountFromPreview()" class="font-medium text-blue-700"></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Pipelines:</span>
+                                        <span x-text="getPipelineCountFromPreview()" class="font-medium text-blue-700"></span>
+                                    </div>
+                                </div>
+                                <div class="space-y-1">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Export Libraries:</span>
+                                        <span x-text="getExportLibrariesSummary()" class="font-medium text-blue-700"></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Total Items:</span>
+                                        <span x-text="getWorkflowCountFromPreview() + getPipelineCountFromPreview()" class="font-medium text-blue-700"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Raw Configuration -->
+                        <div>
+                            <h4 class="text-xs font-medium text-gray-600 mb-2">Raw Configuration:</h4>
+                            <pre class="text-xs bg-gray-50 p-3 rounded border overflow-auto" style="max-height: 200px;"><code x-text="configPreview" class="language-yaml"></code></pre>
+                        </div>
+                    </div>
+                </div>
+                <div x-show="!configPath" class="text-gray-500">
+                    <p class="text-sm">No configuration file loaded. Please load a config file first.</p>
+                </div>
+            </div>
+            <div>
+                <a href="/config" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out">
+                    Update Config
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Job Search and Controls -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Available Jobs</h2>
+        
+        <div class="space-y-4">
+            <!-- Search and Refresh -->
+            <div class="flex items-center space-x-4">
+                <div class="flex-1">
+                    <input type="text" 
+                           x-model="searchTerm"
+                           placeholder="🔍 Fuzzy search jobs by name..."
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <button type="button" 
+                        @click="refreshJobs()"
+                        :disabled="loadingStates.refreshJobs"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
+                    <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span x-show="!loadingStates.refreshJobs">Refresh</span>
+                    <span x-show="loadingStates.refreshJobs">Refreshing...</span>
+                </button>
+            </div>
+            
+            <!-- Selection Summary -->
+            <div class="flex items-center justify-between text-sm text-gray-600">
+                <span x-text="jobsCount"></span>
+                <span x-text="selectedCount"></span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Jobs List -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Jobs List</h2>
+        
+                        <div class="space-y-2 max-h-96 overflow-y-auto">
+            <!-- Loading state -->
+            <div x-show="isLoading" class="text-center py-8" x-init="console.log('Loading state display:', isLoading)">
+                <!-- Primary loading display -->
+                <div class="flex items-center justify-center space-x-3 mb-4">
+                    <div class="w-8 h-8 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                    <div>
+                        <p class="text-lg font-medium text-gray-700">Loading Jobs from Databricks</p>
+                        <p class="text-sm text-gray-500">Please wait while we fetch your jobs...</p>
+                    </div>
+                </div>
+                
+                <!-- Enhanced loading with progress ring (if CSS loads) -->
+                <div class="hidden lg:block">
+                    <div class="flex items-center justify-center py-4">
+                        <div style="position: relative; width: 60px; height: 60px;">
+                            <svg viewBox="0 0 60 60" style="width: 60px; height: 60px;">
+                                <circle cx="30" cy="30" r="26" fill="none" stroke="#e5e7eb" stroke-width="4"></circle>
+                                <circle cx="30" cy="30" r="26" fill="none" stroke="#2563eb" stroke-width="4" 
+                                        stroke-linecap="round" 
+                                        style="transform-origin: 50% 50%; transform: rotate(-90deg); 
+                                               stroke-dasharray: 82 164; animation: spin 2s linear infinite;">
+                                </circle>
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    <!-- Skeleton loading cards -->
+                    <div class="space-y-3 mt-6">
+                        <template x-for="i in 3" :key="i">
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 animate-pulse">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-4 h-4 bg-gray-200 rounded"></div>
+                                        <div class="flex-1">
+                                            <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                                            <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                                        </div>
+                                    </div>
+                                    <div class="w-16 h-6 bg-gray-200 rounded-full"></div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Empty state -->
+            <div x-show="isEmpty && !isLoading" class="text-center py-8">
+                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2m13-8V4a1 1 0 00-1-1H7a1 1 0 00-1 1v1m4 9l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>
+                </svg>
+                <p class="text-gray-500">No jobs found</p>
+                <button type="button" @click="loadJobs()" class="mt-2 text-blue-600 hover:text-blue-700">
+                    Try again
+                </button>
+            </div>
+            
+            <!-- No search results -->
+            <div x-show="!isLoading && !isEmpty && filteredJobs.length === 0 && searchTerm" class="text-center py-8">
+                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <p class="text-gray-500 mb-1">No jobs found for "<span x-text="searchTerm" class="font-medium"></span>"</p>
+                <p class="text-sm text-gray-400">Try a different search term or clear the search</p>
+                <button type="button" @click="searchTerm = ''" class="mt-2 text-blue-600 hover:text-blue-700">
+                    Clear search
+                </button>
+            </div>
+            
+            <!-- Jobs List -->
+            <div x-show="!isLoading && !isEmpty && (filteredJobs.length > 0 || !searchTerm)" class="space-y-2">
+                <template x-for="job in paginatedJobs" :key="job.job_id">
+                    <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <input type="checkbox" 
+                                       :id="'job-' + job.job_id"
+                                       :checked="isJobSelected(job.job_id)"
+                                       @change="toggleJobSelection(job)"
+                                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <div>
+                                    <label :for="'job-' + job.job_id" class="font-medium text-gray-900 cursor-pointer" x-html="highlightMatch(job.name, searchTerm)"></label>
+                                    <p class="text-sm text-gray-500">
+                                        ID: <span x-text="job.job_id"></span> 
+                                        <span x-show="job.job_type" class="ml-2">• <span x-text="job.job_type"></span></span>
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center space-x-4" :class="{ 'opacity-50': !isJobSelected(job.job_id) }">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-sm text-gray-600">Bind Existing:</span>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" 
+                                               :checked="getSelectedJob(job.job_id)?.is_existing || false"
+                                               @change="toggleBindExisting(job.job_id)"
+                                               :disabled="!isJobSelected(job.job_id)"
+                                               class="sr-only peer">
+                                        <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                    </label>
+                                </div>
+                                
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-sm text-gray-600">Export Libraries:</span>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" 
+                                               :checked="getSelectedJob(job.job_id)?.export_libraries || false"
+                                               @change="toggleExportLibraries(job.job_id)"
+                                               :disabled="!isJobSelected(job.job_id)"
+                                               class="sr-only peer">
+                                        <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            
+            <!-- Pagination Controls -->
+            <div x-show="showPagination" class="mt-6 border-t pt-4">
+                <div class="flex items-center justify-between">
+                    <div class="text-sm text-gray-700" x-text="paginationInfo"></div>
+                    <div class="flex items-center space-x-2">
+                        <!-- Previous Button -->
+                        <button @click="previousPage()" 
+                                :disabled="currentPage === 1"
+                                class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Previous
+                        </button>
+                        
+                        <!-- Page Numbers -->
+                        <template x-for="page in Array.from({length: totalPages}, (_, i) => i + 1)" :key="page">
+                            <button @click="goToPage(page)"
+                                    :class="page === currentPage ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
+                                    class="px-3 py-2 text-sm font-medium border border-gray-300 rounded-md">
+                                <span x-text="page"></span>
+                            </button>
+                        </template>
+                        
+                        <!-- Next Button -->
+                        <button @click="nextPage()" 
+                                :disabled="currentPage === totalPages"
+                                class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Next
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Selected Jobs Summary -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Selected Jobs Summary</h2>
+        
+        <div class="space-y-3">
+            <div x-show="!hasSelectedJobs" class="text-gray-500 text-center py-4">
+                No jobs selected
+            </div>
+            
+            <div x-show="hasSelectedJobs" class="space-y-3">
+                <template x-for="job in selectedJobs" :key="job.job_id">
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div>
+                            <span class="font-medium" x-text="job.name"></span>
+                            <span class="text-sm text-gray-500 ml-2">(ID: <span x-text="job.job_id"></span>)</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs px-2 py-1 rounded-full" 
+                                  :class="job.is_existing ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'"
+                                  x-text="job.is_existing ? 'Existing' : 'New'"></span>
+                            <span class="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-800">
+                                Active
+                            </span>
+                            <span class="text-xs px-2 py-1 rounded-full" 
+                                  :class="job.export_libraries ? 'bg-purple-100 text-purple-800' : 'bg-red-100 text-red-800'"
+                                  x-text="job.export_libraries ? 'Export Libs' : 'No Libs'"></span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+        
+        <div class="mt-6 flex space-x-3">
+            <button type="button" 
+                    @click="clearAllSelections()"
+                    :disabled="!hasSelectedJobs"
+                    class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50">
+                Clear Selection
+            </button>
+            <button type="button" 
+                    @click="updateConfiguration()"
+                    :disabled="loadingStates.updateConfig || !canUpdateConfig"
+                    class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50">
+                <span x-show="!loadingStates.updateConfig">Save Configuration</span>
+                <span x-show="loadingStates.updateConfig" class="flex items-center">
+                    <div class="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mr-2"></div>
+                    Saving...
+                </span>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Navigation Section -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex justify-between">
+            <a href="{{ url_for('config.load_config') }}" 
+               class="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150 ease-in-out transform hover:scale-105">
+                <svg class="mr-2 -ml-1 w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"></path>
+                </svg>
+                Previous: Load Config
+            </a>
+            
+            <a href="{{ url_for('pipelines.pipeline_selection') }}" 
+               class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out transform hover:scale-105">
+                Next: Pipeline Selection
+                <svg class="ml-2 -mr-1 w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </a>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/alpine-jobs.js') }}"></script>
+{% endblock %} 

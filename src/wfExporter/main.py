@@ -10,7 +10,8 @@ from typing import Optional
 from .core.databricks_exporter import DatabricksExporter
 
 
-def main(config_path: Optional[str] = None, databricks_host: Optional[str] = None, databricks_token: Optional[str] = None):
+def main(config_path: Optional[str] = None, databricks_host: Optional[str] = None, 
+         databricks_token: Optional[str] = None, log_level: Optional[str] = None):
     """
     Main entry point for the Databricks Workflow Exporter.
     
@@ -24,8 +25,9 @@ def main(config_path: Optional[str] = None, databricks_host: Optional[str] = Non
         config_path: Path to config.yml file (optional)
         databricks_host: Databricks workspace URL (for manual authentication)
         databricks_token: Databricks access token (for manual authentication)
+        log_level: Override log level from CLI (optional)
     """
-    processor = DatabricksExporter(config_path, databricks_host, databricks_token)
+    processor = DatabricksExporter(config_path, databricks_host, databricks_token, log_level)
     
     # Determine asset types based on configuration
     active_jobs = processor.config_manager.get_active_jobs()

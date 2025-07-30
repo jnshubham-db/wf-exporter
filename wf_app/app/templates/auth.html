@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}Authentication Configuration - Databricks Workflow Manager{% endblock %}
+
+{% block content %}
+<div class="space-y-6" x-data="authManager">
+    <!-- Page Header -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Authentication Configuration</h1>
+        <p class="text-gray-600">Configure your Databricks authentication credentials for secure API access.</p>
+        <div class="mt-2 text-sm">
+            <span class="text-blue-600 bg-blue-50 px-2 py-1 rounded">Secure Credential Management</span>
+        </div>
+    </div>
+    
+    <!-- Current Authentication Status -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Current Authentication Status</h2>
+        <div class="flex items-center space-x-3">
+            <div class="w-3 h-3 rounded-full" :class="authStatus.connected ? 'bg-green-500' : 'bg-red-500'"></div>
+            <span class="font-medium" :class="authStatus.connected ? 'text-green-700' : 'text-red-700'" 
+                  x-text="authStatus.connected ? 'Connected' : 'Not Connected'"></span>
+            <span x-show="authStatus.connected" class="text-sm text-gray-500" x-text="authStatus.details"></span>
+        </div>
+        <div x-show="authStatus.connected" class="mt-3 space-x-3">
+            <button @click="testConnection()" 
+                    :disabled="isTestingConnection"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
+                <span x-show="!isTestingConnection">Test Connection</span>
+                <span x-show="isTestingConnection" class="flex items-center">
+                    <div class="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mr-2"></div>
+                    Testing...
+                </span>
+            </button>
+            
+            <button @click="testJobsConnection()" 
+                    :disabled="isTestingConnection"
+                    class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50">
+                <span x-show="!isTestingConnection">Test Jobs Access</span>
+                <span x-show="isTestingConnection" class="flex items-center">
+                    <div class="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mr-2"></div>
+                    Testing Jobs...
+                </span>
+            </button>
+            
+            <button @click="logoutUser()" 
+                    class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
+                Logout & Use Different Account
+            </button>
+        </div>
+    </div>
+    
+    <!-- Authentication Configuration -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Authentication Method</h2>
+        
+        <!-- Authentication Type Selection -->
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Select Authentication Type</label>
+                <select x-model="authConfig.auth_type" 
+                        @change="onAuthTypeChange()"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">Choose authentication method...</option>
+                    <option value="pat">Personal Access Token (PAT)</option>
+                    <option value="azure-client-secret">Azure Service Principal</option>
+                </select>
+            </div>
+            
+            <!-- Authentication Type Description -->
+            <div x-show="authConfig.auth_type" class="bg-blue-50 border-l-4 border-blue-400 p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-blue-700" x-text="getAuthTypeDescription()"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Personal Access Token (PAT) Configuration -->
+        <div x-show="authConfig.auth_type === 'pat'" class="mt-6 space-y-4">
+            <h3 class="text-md font-medium text-gray-900">Personal Access Token Configuration</h3>
+            
+            <div class="grid grid-cols-1 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Databricks Host URL</label>
+                    <input type="url" 
+                           x-model="authConfig.host"
+                           placeholder="https://your-workspace.cloud.databricks.com"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Your Databricks workspace URL</p>
+                </div>
+                
+
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Key Vault Name</label>
+                    <input type="text" 
+                           x-model="authConfig.keyvault_name"
+                           placeholder="your-keyvault-name"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Azure Key Vault name where the token is stored</p>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Secret Name</label>
+                    <input type="text" 
+                           x-model="authConfig.secret_name"
+                           placeholder="databricks-token"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Name of the secret in Key Vault containing the Databricks token</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Azure Service Principal Configuration -->
+        <div x-show="authConfig.auth_type === 'azure-client-secret'" class="mt-6 space-y-4">
+            <h3 class="text-md font-medium text-gray-900">Azure Service Principal Configuration</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Databricks Host URL</label>
+                    <input type="url" 
+                           x-model="authConfig.host"
+                           placeholder="https://your-workspace.cloud.databricks.com"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Your Databricks workspace URL</p>
+                </div>
+                
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Key Vault Name</label>
+                    <input type="text" 
+                           x-model="authConfig.keyvault_name"
+                           placeholder="your-keyvault-name"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Azure Key Vault name where credentials are stored</p>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tenant ID Key</label>
+                    <input type="text" 
+                           x-model="authConfig.azure_tenant_id_key"
+                           placeholder="azure-tenant-id"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Key Vault secret name for Azure AD tenant ID</p>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Client ID Key</label>
+                    <input type="text" 
+                           x-model="authConfig.azure_client_id_key"
+                           placeholder="azure-client-id"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Key Vault secret name for service principal application ID</p>
+                </div>
+                
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Client Secret Key</label>
+                    <input type="text" 
+                           x-model="authConfig.azure_client_secret_key"
+                           placeholder="azure-client-secret"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Key Vault secret name for service principal client secret</p>
+                </div>
+            </div>
+        </div>
+
+        
+        <!-- Action Buttons -->
+        <div x-show="authConfig.auth_type" class="mt-6 flex space-x-3">
+            <button @click="saveConfiguration()" 
+                    :disabled="!canSaveConfig() || isSaving"
+                    class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                <span x-show="!isSaving">Save & Test Connection</span>
+                <span x-show="isSaving" class="flex items-center">
+                    <div class="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mr-2"></div>
+                    Saving...
+                </span>
+            </button>
+            
+            <button @click="clearConfiguration()" 
+                    class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
+                Clear Configuration
+            </button>
+        </div>
+    </div>
+    
+    <!-- Security Notice -->
+    <div class="bg-gray-50 rounded-lg p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-gray-800">Security Notice</h3>
+                <div class="mt-2 text-sm text-gray-600">
+                    <ul class="list-disc pl-5 space-y-1">
+                        <li>Credentials are stored securely in your session and are not persisted to disk</li>
+                        <li>All communications with Databricks use HTTPS encryption</li>
+                        <li>Personal Access Tokens are recommended for the best security</li>
+                        <li>Never share your credentials or access tokens</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/alpine-auth.js') }}"></script>
+{% endblock %} 

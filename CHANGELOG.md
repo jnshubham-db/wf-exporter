@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
+## [0.4.0]
+### Added
+- Contains code for databricks Apps and databricks workflows.
+- Added one-click deployments for apps, folders and workflows
+- Auto export whl file to workflows deployment
+- Auto permission management
+
+
 ## [0.3.1]
 ### Added
 - **Dual Asset Processing**: Support for processing both workflows and pipelines in a single run

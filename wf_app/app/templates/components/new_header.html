@@ -1,0 +1,76 @@
+<!-- New Header / Navigation Bar -->
+<nav class="bg-gray-900 text-white shadow-lg" x-data="{ mobileMenuOpen: false }">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+            <!-- Logo and Brand - Clickable to Dashboard -->
+            <a href="{{ url_for('main.index') }}" class="flex items-center hover:opacity-80 transition-opacity">
+                <div class="flex-shrink-0">
+                    <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-lg flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-white">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="hidden md:block ml-4">
+                    <h1 class="text-lg font-bold">Databricks Workflow Manager</h1>
+                    <p class="text-xs text-gray-400">Workflow & Pipeline Management</p>
+                </div>
+            </a>
+
+            <!-- Desktop Navigation Links -->
+            <div class="hidden md:flex items-center space-x-4">
+                <a href="{{ url_for('config.config_management') }}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-800 transition-colors">Configuration</a>
+                <a href="{{ url_for('jobs.job_selection') }}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-800 transition-colors">Job Selection</a>
+                <a href="{{ url_for('pipelines.pipeline_selection') }}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-800 transition-colors">Lakeflow Pipelines</a>
+                <a href="{{ url_for('export.export_workflow') }}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-800 transition-colors">Export</a>
+            </div>
+
+            <!-- Right side actions -->
+            <div class="hidden md:flex items-center space-x-4">
+                <!-- User/Auth Status -->
+                <div x-data="authStatusDisplay" x-init="init()">
+                    <div x-show="!authStatus.connected" @click="window.location.href='/auth'" class="cursor-pointer flex items-center space-x-2 text-red-400 hover:text-red-300">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 102 0V6zm-1 8a1 1 0 110-2 1 1 0 010 2z" clip-rule="evenodd"></path></svg>
+                        <span>Not Configured</span>
+                    </div>
+                    <div x-show="authStatus.connected" x-data="{ open: false }" @click.away="open = false" class="relative">
+                        <button @click="open = !open" class="flex items-center space-x-2 text-green-400 hover:text-green-300">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                            <span x-text="authStatus.user_name || 'Connected'"></span>
+                        </button>
+                        <div x-show="open" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                            <div class="px-4 py-2 text-xs text-gray-500 border-b" x-text="authStatus.workspace_url"></div>
+                            <a href="{{ url_for('auth.auth_page') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Authentication Settings</a>
+                            <button @click="logout()" class="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-red-50">Logout</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile Menu Button -->
+            <div class="md:hidden flex items-center">
+                <button @click="mobileMenuOpen = !mobileMenuOpen" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 focus:outline-none">
+                    <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
+                        <path :class="{'hidden': mobileMenuOpen, 'inline-flex': !mobileMenuOpen }" class="inline-flex" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        <path :class="{'hidden': !mobileMenuOpen, 'inline-flex': mobileMenuOpen }" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div x-show="mobileMenuOpen" class="md:hidden">
+        <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+            <a href="{{ url_for('config.config_management') }}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-800">Configuration</a>
+            <a href="{{ url_for('jobs.job_selection') }}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-800">Job Selection</a>
+            <a href="{{ url_for('pipelines.pipeline_selection') }}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-800">Lakeflow Pipelines</a>
+            <a href="{{ url_for('export.export_workflow') }}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-800">Export</a>
+            
+            <!-- Mobile Auth Section -->
+            <div class="border-t border-gray-700 pt-2 mt-2">
+                <a href="{{ url_for('auth.auth_page') }}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-800">Authentication</a>
+            </div>
+        </div>
+    </div>
+</nav> 
