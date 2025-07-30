@@ -39,7 +39,8 @@ class DatabricksExporter:
     
     def __init__(self, config_path: Optional[str] = None, 
                  databricks_host: Optional[str] = None, 
-                 databricks_token: Optional[str] = None):
+                 databricks_token: Optional[str] = None,
+                 log_level: Optional[str] = None):
         """
         Initialize the DatabricksExporter with required components.
         
@@ -47,15 +48,17 @@ class DatabricksExporter:
             config_path: Path to configuration file (optional)
             databricks_host: Databricks workspace URL (optional)
             databricks_token: Databricks access token (optional)
+            log_level: Override log level from CLI (optional)
         """
         # Create temporary logger without file handler for config loading
-        temp_logger = LogManager(create_file_handler=False)
+        temp_logger = LogManager(create_file_handler=False, override_log_level=log_level)
         
         # Load configuration with temporary logger
         self.config_manager = ConfigManager(logger=temp_logger, config_path=config_path)
         
         # Set up proper logging with config data (this is the main logger)
-        self.logger = LogManager(config_data=self.config_manager.config_data)
+        self.logger = LogManager(config_data=self.config_manager.config_data, 
+                                override_log_level=log_level)
         
         # Update config manager to use the proper logger
         self.config_manager.logger = self.logger

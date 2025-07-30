@@ -1,15 +1,16 @@
 initial_variables:
-  v_start_path: /Users/shubham.j/Documents/ATT/wf-exporter-base/wf-exporter/exports
+  v_start_path: /Workspace/Applications/wf_exporter/exports/
   v_resource_key_job_id_mapping_csv_file_path: '{v_start_path}/bind_scripts/resource_key_job_id_mapping.csv'
   v_backup_jobs_yaml_path: '{v_start_path}/backup_jobs_yaml/'
-  v_log_level: DEBUG
-  v_databricks_yml_path: /Users/shubham.j/Documents/ATT/wf-exporter-base/wf-exporter/databricks.yml
+  v_log_level: INFO
+  v_databricks_yml_path: ./databricks.yml
   v_log_directory_path: '{v_start_path}/logs'
-  v_databricks_cli_path: "databricks"  # CLI executable path
-  v_databricks_config_profile: "DEFAULT"  # Profile name
 
-global_settings:
-  export_libraries: true  # Global flag to control library export (.whl, .jar files)
+spark_conf_key_replacements:
+- search_key: spark.hadoop.fs.azure.account.key.storage.dfs.core.windows.net
+  target_key: spark.sql.shuffle.partitions
+  target_value: '{existing_value}\nspark.hadoop.fs.azure.account.key.${var.v_storage_account}.dfs.core.windows.net
+    ${var.v_storage_account_secret}'
 
 path_replacement:
   ^/Workspace/Repos/[^/]+/: ../
@@ -18,37 +19,22 @@ path_replacement:
   ^/Shared/: ../
   ^/: ../
 
+global_settings:
+  export_libraries: true
+
 value_replacements:
   ${: $${
-  amtrak: "{var.catalog}"
 
 workflows:
-- job_name: SJ_Sample_Job
-  job_id: 810105583362026
-  is_existing: true
-  is_active: false
-  export_libraries: true  # Override global setting for this workflow
-- job_name: SJ_Test_Export_DAB
-  job_id: 1101345305647523
-  is_existing: true
-  is_active: true
-  export_libraries: true  # Override global setting for this workflow
+  - job_name: "Sample Workflow"
+    job_id: 123456789
+    is_existing: true
+    is_active: true
+    export_libraries: true
 
-# Future pipeline support
-pipelines: 
-- pipeline_name: "sj_pipeline_export"
-  pipeline_id: d4623163-fa76-4fb3-a117-663851c9f32f
-  is_existing: true
-  is_active: true
-  export_libraries: false
-- pipeline_name: "amtrak_pipeline"
-  pipeline_id: 53bf93f1-5356-4f66-9db2-659aa9838388
-  is_existing: true
-  is_active: true
-  export_libraries: false
-#- pipeline_name: "Sample Pipeline"
-#  pipeline_id: "12345"
-#  is_existing: true
-#  is_active: false
-#  export_libraries: true  # Override global setting for this pipeline
-  
+pipelines:
+  - pipeline_name: "Sample Pipeline"
+    pipeline_id: 987654321
+    is_existing: true
+    is_active: true
+    export_libraries: true

@@ -1,21 +1,28 @@
 [tool.poetry]
 name = "wfexporter"
-version = "0.3.1"
+version = "0.4.0"
 description = "Export Databricks workflows and DLT pipelines as YAML files with modular architecture"
 authors = ["Shubham Jain <shubham.j@databricks.com>"]
 readme = "README.md"
-packages = [{include = "wfExporter", from = "src"}]
-include = ["config/config.yml", "config/databricks.yml"]
+packages = [
+    {include = "wfExporter", from = "src"},
+    {include = "wf_app"}
+]
+include = ["config/config.yml", "config/databricks.yml", "wf_app/**/*"]
 
 [tool.poetry.scripts]
 wf-export = "wfExporter.cli_entry:cli_main"
+wf-export-app = "wf_app.main:main"
 
 [tool.poetry.dependencies]
 python = "^3.11"
 pandas = ">=1.2.5,<2.3.0"
 pyyaml = "^6.0.2"
-databricks-sdk = "^0.58.0"
+databricks-sdk = "^0.60.0"
 setuptools = "^69.0.0"  # Required for pkg_resources
+click = "^8.0.0"
+requests = "^2.31.0"
+flask = "^3.1.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0.0"

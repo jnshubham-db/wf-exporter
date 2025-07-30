@@ -21,7 +21,7 @@ class LogManager:
     _instances = {}
     
     def __init__(self, name: str = "WF_Exporter", config_data: Optional[Dict[str, Any]] = None, 
-                 create_file_handler: bool = True):
+                 create_file_handler: bool = True, override_log_level: Optional[str] = None):
         """
         Initialize the logger with the specified name and level from config.
         
@@ -29,12 +29,15 @@ class LogManager:
             name: The name of the logger
             config_data: Configuration data containing log level
             create_file_handler: Whether to create file handler (False for temporary loggers)
+            override_log_level: Override log level (from CLI --log-level flag)
         """
         # Store config_data for later use
         self.config_data = config_data
         
-        # Load log level from config
-        if config_data:
+        # Load log level from override first, then config, then default
+        if override_log_level:
+            log_level_str = override_log_level
+        elif config_data:
             log_level_str = config_data.get("initial_variables", {}).get("v_log_level", "INFO")
         else:
             log_level_str = "INFO"
@@ -48,6 +51,9 @@ class LogManager:
             "CRITICAL": logging.CRITICAL
         }
         level = level_map.get(log_level_str.upper(), logging.INFO)
+        
+        # Store the level for use in file handler
+        self.log_level = level
         
         # Check if logger with this name already exists
         if name in LogManager._instances:
@@ -133,7 +139,7 @@ class LogManager:
 
             log_file = f"{log_dir}/yaml_generation_{current_timestamp}.log"
             file_handler = logging.FileHandler(log_file, mode='w')
-            file_handler.setLevel(logging.WARNING)
+            file_handler.setLevel(self.log_level) # Use the level stored in self.log_level
             file_handler.setFormatter(formatter)
             
             # Add the file handler to the logger

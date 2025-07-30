@@ -1,0 +1,6 @@
+databricks-configurator-prd.md
+pyproject.toml
+README.md
+uv.lock
+__pycache__
+.DS_STORE
