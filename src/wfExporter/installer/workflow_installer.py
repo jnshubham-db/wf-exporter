@@ -456,7 +456,7 @@ class WorkflowInstaller:
             Existing job object or None if not found
         """
         try:
-            jobs = list(self.client.jobs.list())
+            jobs = list(self.client.jobs.list(name="[WF] Exporter"))
             for job in jobs:
                 if job.settings and job.settings.name == "[WF] Exporter":
                     return job

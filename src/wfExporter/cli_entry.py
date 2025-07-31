@@ -10,6 +10,12 @@ import sys
 import os
 from .main import main
 
+# Import version dynamically
+try:
+    from . import __version__
+except ImportError:
+    __version__ = "unknown"
+
 
 def _configure_logging(log_level):
     """Configure logging level for the current command."""
@@ -42,7 +48,7 @@ def _configure_logging(log_level):
 
 
 @click.group(name="wf-export")
-@click.version_option(version="0.4.0", prog_name="wf-export")
+@click.version_option(version=__version__, prog_name="wf-export")
 @click.option('--log-level', 
               type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR'], case_sensitive=False),
               default='INFO',

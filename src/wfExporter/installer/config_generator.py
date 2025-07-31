@@ -30,7 +30,7 @@ class ConfigGenerator:
         # Generate config.yml
         config_yml_path = target_directory / "config.yml"
         with open(config_yml_path, 'w') as f:
-            f.write(self._get_config_yml_content())
+            f.write(self._get_config_yml_content_local(target_directory=target_directory))
         created_files.append(config_yml_path)
         
         # Generate databricks.yml
@@ -47,6 +47,53 @@ class ConfigGenerator:
         
         return created_files
     
+    def _get_config_yml_content_local(self, target_directory: Path) -> str:
+        """Get content for config.yml file."""
+        return """initial_variables:
+  v_start_path: """+target_directory+"""/exports/
+  v_resource_key_job_id_mapping_csv_file_path: '{v_start_path}/bind_scripts/resource_key_job_id_mapping.csv'
+  v_backup_jobs_yaml_path: '{v_start_path}/backup_jobs_yaml/'
+  v_log_level: INFO
+  v_databricks_yml_path: """+target_directory+"""/databricks.yml
+  v_log_directory_path: '{v_start_path}/logs'
+  v_databricks_cli_path: "databricks"
+  v_databricks_config_profile: DEFAULT
+
+
+spark_conf_key_replacements:
+- search_key: spark.hadoop.fs.azure.account.key.storage.dfs.core.windows.net
+  target_key: spark.sql.shuffle.partitions
+  target_value: '{existing_value}\\nspark.hadoop.fs.azure.account.key.${var.v_storage_account}.dfs.core.windows.net
+    ${var.v_storage_account_secret}'
+
+path_replacement:
+  ^/Workspace/Repos/[^/]+/: ../
+  ^/Repos/[^/]+/: ../
+  ^/Workspace/: ../
+  ^/Shared/: ../
+  ^/: ../
+
+global_settings:
+  export_libraries: true
+
+value_replacements:
+  ${: $${
+
+workflows:
+  - job_name: "Sample Workflow"
+    job_id: 123456789
+    is_existing: true
+    is_active: true
+    export_libraries: true
+
+pipelines:
+  - pipeline_name: "Sample Pipeline"
+    pipeline_id: 987654321
+    is_existing: true
+    is_active: true
+    export_libraries: true
+"""
+
     def _get_config_yml_content(self) -> str:
         """Get content for config.yml file."""
         return """initial_variables:
@@ -153,75 +200,29 @@ if __name__ == "__main__":
 
     def _get_run_py_content(self) -> str:
         """Get content for run.py file (Databricks workflow runner)."""
-        return '''#!/usr/bin/env python3
-"""
-WF Exporter Workflow Runner
-
-This script is the main entry point for the WF Exporter workflow 
-when deployed to Databricks workspace.
-"""
-
+        return '''
+from wfExporter.main import main
 import sys
-import os
-from pathlib import Path
 
-def setup_whl_import():
-    """Set up imports from the uploaded WHL file."""
-    current_dir = Path(__file__).parent
-    
-    # Look for WHL files in the current directory
-    whl_files = list(current_dir.glob("*.whl"))
-    
-    if whl_files:
-        whl_file = whl_files[0]  # Use the first WHL file found
-        print(f"Found WHL file: {whl_file}")
-        
-        # Add WHL file to Python path
-        if str(whl_file) not in sys.path:
-            sys.path.insert(0, str(whl_file))
-            print(f"Added {whl_file} to Python path")
-    else:
-        print("Warning: No WHL files found in current directory")
-        print(f"Current directory: {current_dir}")
-        print(f"Files in directory: {list(current_dir.iterdir())}")
-
-def main():
-    """Main function to run the WF Exporter."""
-    print("🚀 Starting WF Exporter Workflow")
-    print("=" * 50)
-    
-    # Setup WHL imports
-    setup_whl_import()
-    
-    # Get config file path
-    config_path = Path(__file__).parent / "config.yml"
-    
-    if not config_path.exists():
-        print(f"❌ Error: Config file not found at {config_path}")
-        sys.exit(1)
-    
-    print(f"📋 Using config file: {config_path}")
-    
-    try:
-        # Import and run the exporter
-        from wfExporter.main import main as export_main
-        
-        print("✅ Successfully imported wfExporter")
-        print("🔄 Starting export process...")
-        
-        # Run the export with the config file
-        export_main(config_path=str(config_path))
-        
-        print("🎉 Export process completed successfully!")
-        
-    except ImportError as e:
-        print(f"❌ Failed to import wfExporter: {e}")
-        print("💡 Make sure the WHL file is properly uploaded and accessible")
-        sys.exit(1)
-    except Exception as e:
-        print(f"❌ Export process failed: {e}")
-        sys.exit(1)
 
 if __name__ == "__main__":
-    main()
+    workspace_url = spark.conf.get('spark.databricks.workspaceUrl')
+    url = f"https://{workspace_url}"
+    token = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()    
+    config_path = None
+    
+    if "--config_path" in sys.argv:
+        try:
+            index = sys.argv.index("--config_path")
+            config_path = sys.argv[index + 1]
+        except IndexError:
+            print("Error: --config_path specified but no value provided.")
+            sys.exit(1)
+
+
+        main(
+            config_path=config_path,
+            databricks_host=url,
+            databricks_token=token
+        )
 ''' 
