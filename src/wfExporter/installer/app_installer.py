@@ -151,7 +151,7 @@ class AppInstaller:
         
         # Create or update the app
         if progress:
-            progress.start_step("Creating Databricks app...")
+            progress.start_step("Compute is starting. Please wait for it to be ready before deploying the app. This process may take 2 to 3 minutes....")
         logger.debug("Creating or updating app...")
         app = self._create_or_update_app()
         
@@ -684,8 +684,8 @@ class AppInstaller:
             
             logger.debug(f"Created App object: name={app_obj.name}, description={app_obj.description}")
             
-            # Create the app using the App object
-            new_app = self.client.apps.create(app=app_obj)
+            # Create the app using the App object and wait for it to complete
+            new_app = self.client.apps.create_and_wait(app=app_obj)
             logger.info(f"Successfully created app {self.app_name}")
             return new_app
             
@@ -772,8 +772,8 @@ class AppInstaller:
                 
                 logger.debug(f"Attempting deployment with mode: {deployment_mode}")
                 
-                # Deploy the app using the AppDeployment object
-                deployment = self.client.apps.deploy(
+                # Deploy the app using the AppDeployment object and wait for completion
+                deployment = self.client.apps.deploy_and_wait(
                     app_name=self.app_name,
                     app_deployment=app_deployment
                 )
@@ -793,7 +793,7 @@ class AppInstaller:
                     
                     logger.debug(f"Retrying deployment with mode: {deployment_mode}")
                     
-                    deployment = self.client.apps.deploy(
+                    deployment = self.client.apps.deploy_and_wait(
                         app_name=self.app_name,
                         app_deployment=app_deployment
                     )
@@ -803,9 +803,7 @@ class AppInstaller:
                     # Re-raise if it's a different error
                     raise auto_sync_error
             
-            # Wait for deployment to complete
-            self._wait_for_deployment(deployment.deployment_id)
-            
+            # No need to wait manually since we used deploy_and_wait
             return deployment
             
         except Exception as e:

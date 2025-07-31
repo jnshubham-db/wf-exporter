@@ -278,7 +278,7 @@ def run_install(
     
     # Sample configuration generation
     if generate_samples is None and interactive:
-        generate_samples = click.confirm("\n📄 Generate sample configs in current directory?", default=True)
+        generate_samples = click.confirm("\n📄 Generate sample configs in current directory for local run?", default=True)
     
     if generate_samples:
         try:
@@ -360,6 +360,7 @@ def run_uninstall(
     """
     click.echo("🗑️  WF Exporter Uninstallation")
     click.echo("=" * 35)
+
     
     if not (uninstall_workflow or uninstall_app or uninstall_all):
         click.echo("No components specified for uninstallation.")

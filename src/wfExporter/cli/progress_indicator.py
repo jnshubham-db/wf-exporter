@@ -51,10 +51,13 @@ class ProgressIndicator:
         if self.thread:
             self.thread.join()
             
-        # Clear the line and show final message
-        sys.stdout.write('\r' + ' ' * (len(self.message) + 10) + '\r')
+        # Clear the line completely and show final message
+        sys.stdout.write('\r' + ' ' * 80 + '\r')  # Clear entire line
         if final_message:
             sys.stdout.write(final_message + '\n')
+        else:
+            # Ensure we clear the line even without a final message
+            sys.stdout.write('\r')
         sys.stdout.flush()
         
     def update_message(self, message: str) -> None:
@@ -72,8 +75,9 @@ class ProgressIndicator:
             spinner_char = self.spinner_chars[self.current_char_index]
             self.current_char_index = (self.current_char_index + 1) % len(self.spinner_chars)
             
-            # Write the current state
-            sys.stdout.write(f'\r{spinner_char} {self.message}')
+            # Write the current state, ensuring we clear any existing content
+            line_content = f'{spinner_char} {self.message}'
+            sys.stdout.write(f'\r{line_content:<60}')  # Pad with spaces to clear previous content
             sys.stdout.flush()
             
             time.sleep(0.1)

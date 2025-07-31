@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
+## [0.4.2]
+### Fixed
+- Fixed too much logging
+- Fixed progress indicator overlapping with user prompts during CLI operations
+- Fixed app creation and deployment to use create_and_wait() and deploy_and_wait() for proper completion handling
+- Fixed uninstall command to work correctly when no specific flags are provided (defaults to uninstalling all components)
+
 ## [0.4.1]
 ### Added
 - Updated samples for local run
@@ -16,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Bug fix for run.py for workflows
+- Fixed progress indicator overlapping with user prompts during CLI operations
+- Fixed app creation and deployment to use create_and_wait() and deploy_and_wait() for proper completion handling
+- Fixed uninstall command to work correctly when no specific flags are provided (defaults to uninstalling all components)
 
 ## [0.4.0]
 ### Added

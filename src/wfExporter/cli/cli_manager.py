@@ -100,7 +100,7 @@ class DatabricksCliManager:
             
             if result.returncode == 0:
                 self.is_installed = True
-                self.logger.info(f"Using local Databricks CLI at: {self.cli_path}")
+                self.logger.debug(f"Using local Databricks CLI at: {self.cli_path}")
                 self.logger.debug(f"CLI version: {result.stdout.strip()}")
                 return True
             else:
@@ -121,7 +121,7 @@ class DatabricksCliManager:
         """
         try:
             command = "curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh"
-            self.logger.info(f"Installing Databricks CLI with command: {command}")
+            self.logger.debug(f"Installing Databricks CLI with command: {command}")
             
             result = subprocess.run(
                 command,
@@ -142,11 +142,11 @@ class DatabricksCliManager:
             if match1:
                 self.cli_path = match1.group(1)
                 self.is_installed = True
-                self.logger.info(f"Databricks CLI installed to path: {self.cli_path}")
+                self.logger.debug(f"Databricks CLI installed to path: {self.cli_path}")
             elif match2:
                 self.cli_path = match2.group(1)
                 self.is_installed = True
-                self.logger.info(f"Databricks CLI installed to path: {self.cli_path}")
+                self.logger.debug(f"Databricks CLI installed to path: {self.cli_path}")
             else:
                 self.logger.error("Failed to determine CLI installation path.")
                 self.is_installed = False
@@ -226,17 +226,17 @@ class DatabricksCliManager:
             if self.config_profile and self.config_profile != "default":
                 # Use profile-based authentication
                 os.environ['DATABRICKS_CONFIG_PROFILE'] = self.config_profile
-                self.logger.info(f"Using Databricks config profile: {self.config_profile}")
+                self.logger.debug(f"Using Databricks config profile: {self.config_profile}")
                 return True
             elif databricks_host and databricks_token:
                 # Use token-based authentication
                 os.environ["DATABRICKS_HOST"] = databricks_host
                 os.environ["DATABRICKS_TOKEN"] = databricks_token
-                self.logger.info(f"Authentication configured with host: {databricks_host}")
+                self.logger.debug(f"Authentication configured with host: {databricks_host}")
                 return True
             elif os.getenv("DATABRICKS_HOST") and os.getenv("DATABRICKS_TOKEN"):
                 # Use existing environment variables
-                self.logger.info("Using existing DATABRICKS_HOST and DATABRICKS_TOKEN environment variables")
+                self.logger.debug("Using existing DATABRICKS_HOST and DATABRICKS_TOKEN environment variables")
                 return True
             else:
                 self.logger.error("Authentication required. Either:")
@@ -276,7 +276,7 @@ class DatabricksCliManager:
                         os.environ["DATABRICKS_HOST"] = url
                         os.environ["DATABRICKS_TOKEN"] = token
                         
-                        self.logger.info(f"Authentication configured with Databricks workspace: {url}")
+                        self.logger.debug(f"Authentication configured with Databricks workspace: {url}")
                         return True
                         
                     except Exception as token_error:
@@ -291,7 +291,7 @@ class DatabricksCliManager:
             if databricks_host and databricks_token:
                 os.environ["DATABRICKS_HOST"] = databricks_host
                 os.environ["DATABRICKS_TOKEN"] = databricks_token
-                self.logger.info(f"Authentication configured with provided credentials: {databricks_host}")
+                self.logger.debug(f"Authentication configured with provided credentials: {databricks_host}")
                 return True
             else:
                 self.logger.error("No active Spark session found and no databricks_host/databricks_token provided")
@@ -323,7 +323,7 @@ class DatabricksCliManager:
             
             if result.returncode == 0:
                 self.logger.debug(f"Authentication test successful: {result.stdout.strip()}")
-                self.logger.info("Authentication test successful")
+                self.logger.debug("Authentication test successful")
                 self.is_authenticated = True
                 return True
             else:
@@ -402,7 +402,7 @@ class DatabricksCliManager:
             self.logger.debug(f"Command stderr: {result.stderr}")
             
             if result.returncode == 0:
-                self.logger.info(f"Successfully generated pipeline bundle for pipeline ID: {pipeline_id}")
+                self.logger.debug(f"Successfully generated pipeline bundle for pipeline ID: {pipeline_id}")
                 
                 # Find generated files in the start_path
                 generated_files = []
@@ -483,7 +483,7 @@ class DatabricksCliManager:
             # Check if the command succeeded
             if result.returncode == 0:
                 status_message = f"Command 'bundle generate job' executed successfully for job id: {job_id}"
-                self.logger.info(status_message)
+                self.logger.debug(status_message)
                 file_paths = [
                     re.search(r'(src|resources)/[^\n\r]+', file).group(0) if re.search(r'(src|resources)/[^\n\r]+', file) else ''
                     for file in result.stderr.split('\n')
