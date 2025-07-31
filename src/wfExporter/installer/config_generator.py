@@ -50,11 +50,11 @@ class ConfigGenerator:
     def _get_config_yml_content_local(self, target_directory: Path) -> str:
         """Get content for config.yml file."""
         return """initial_variables:
-  v_start_path: """+target_directory+"""/exports/
+  v_start_path: """+str(target_directory)+"""/exports/
   v_resource_key_job_id_mapping_csv_file_path: '{v_start_path}/bind_scripts/resource_key_job_id_mapping.csv'
   v_backup_jobs_yaml_path: '{v_start_path}/backup_jobs_yaml/'
   v_log_level: INFO
-  v_databricks_yml_path: """+target_directory+"""/databricks.yml
+  v_databricks_yml_path: """+str(target_directory)+"""/databricks.yml
   v_log_directory_path: '{v_start_path}/logs'
   v_databricks_cli_path: "databricks"
   v_databricks_config_profile: DEFAULT

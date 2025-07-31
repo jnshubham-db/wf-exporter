@@ -278,6 +278,11 @@ class WorkflowInstaller:
         if existing_job:
             # Ask user what they want to do with existing job
             if self.interactive:
+                # Import here to avoid circular imports
+                import sys
+                # Clear any progress indicator output before prompting
+                sys.stdout.write('\r' + ' ' * 80 + '\r')
+                sys.stdout.flush()
                 action = self._prompt_existing_job_action(existing_job)
             else:
                 # Non-interactive mode: default to update
@@ -561,8 +566,13 @@ class WorkflowInstaller:
             "update" or "redeploy"
         """
         import click
+        import sys
         
-        click.echo(f"\n⚠️  Existing workflow found:")
+        # Ensure clean output for the prompt
+        sys.stdout.write('\n')  # Add newline for clean separation
+        sys.stdout.flush()
+        
+        click.echo(f"⚠️  Existing workflow found:")
         click.echo(f"   Job ID: {existing_job.job_id}")
         click.echo(f"   Job Name: {existing_job.settings.name if existing_job.settings else '[Unknown]'}")
         click.echo()

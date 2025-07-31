@@ -4,3 +4,4 @@ exports/
 .DS_STORE/
 databricks-configurator-prd.md
 .DS_Store
+dist/

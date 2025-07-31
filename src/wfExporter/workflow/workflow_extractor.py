@@ -324,7 +324,7 @@ class WorkflowExtractor:
                 self.logger.debug(f"Found direct root_path attribute: {root_folder}")
         
         pipeline_type = "lakeflow" if root_folder else "legacy"
-        self.logger.info(f"Detected pipeline type: {pipeline_type}" + (f" with root path: {root_folder}" if root_folder else ""))
+        self.logger.debug(f"Detected pipeline type: {pipeline_type}" + (f" with root path: {root_folder}" if root_folder else ""))
         
         if pipeline_type == "lakeflow":
             # For lakeflow pipelines with root folder
@@ -676,7 +676,7 @@ class WorkflowExtractor:
                 return []
             
             successful_downloads = [f for f in downloaded_files if f.get('success', False)]
-            self.logger.info(f"Root folder download completed: {len(successful_downloads)}/{len(downloaded_files)} files downloaded successfully")
+            self.logger.debug(f"Root folder download completed: {len(successful_downloads)}/{len(downloaded_files)} files downloaded successfully")
             
             return downloaded_files
             
@@ -742,7 +742,7 @@ class WorkflowExtractor:
                 success, error_msg = self._download_workspace_file(artifact_path, local_file_path, artifact_type)
             
             if success:
-                self.logger.info(f"Successfully exported {artifact_path} to {local_file_path}")
+                self.logger.debug(f"Successfully exported {artifact_path} to {local_file_path}")
                 return True, local_file_path, ""
             else:
                 self.logger.error(f"Failed to export {artifact_path}: {error_msg}")
@@ -870,7 +870,7 @@ class WorkflowExtractor:
             }
             results.append(result)
         
-        self.logger.info(f"Exported {len([r for r in results if r['success']])} out of {len(artifacts)} artifacts successfully")
+        self.logger.debug(f"Exported {len([r for r in results if r['success']])} out of {len(artifacts)} artifacts successfully")
         return results 
 
     def get_pipeline_details(self, pipeline_id: str) -> Optional[Any]:

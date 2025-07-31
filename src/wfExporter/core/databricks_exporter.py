@@ -104,7 +104,7 @@ class DatabricksExporter:
         if not self.cli_manager.test_authentication():
             raise RuntimeError("Failed to authenticate with Databricks")
         
-        self.logger.info("Databricks CLI setup completed successfully")
+        self.logger.debug("Databricks CLI setup completed successfully")
     
     
     def _discover_generated_files(self, start_path: str, asset_name: str, asset_type: str) -> List[str]:
@@ -641,7 +641,7 @@ class DatabricksExporter:
             self.logger.error(f"Validation failed: Final YAML file not found at {yml_file_path}")
             return False
         
-        self.logger.info(f"✅ Folder structure for {asset_name} is valid.")
+        self.logger.debug(f"✅ Folder structure for {asset_name} is valid.")
         return True
     
     def _log_processing_summary(self, workflow_definition: List[dict], all_artifacts: List[dict], 
@@ -655,9 +655,9 @@ class DatabricksExporter:
             download_results: Results of artifact downloads
         """
         try:
-            self.logger.info("=" * 60)
-            self.logger.info("PROCESSING SUMMARY")
-            self.logger.info("=" * 60)
+            self.logger.debug("=" * 60)
+            self.logger.debug("PROCESSING SUMMARY")
+            self.logger.debug("=" * 60)
             
             # Task type summary
             task_types = {}
@@ -665,9 +665,9 @@ class DatabricksExporter:
                 task_type = task.get('Task_Type', 'unknown')
                 task_types[task_type] = task_types.get(task_type, 0) + 1
             
-            self.logger.info("Task Types Processed:")
+            self.logger.debug("Task Types Processed:")
             for task_type, count in task_types.items():
-                self.logger.info(f"  - {task_type}: {count} task(s)")
+                self.logger.debug(f"  - {task_type}: {count} task(s)")
             
             # Artifact summary
             artifact_types = {}
@@ -675,15 +675,15 @@ class DatabricksExporter:
                 artifact_type = artifact.get('type', 'unknown')
                 artifact_types[artifact_type] = artifact_types.get(artifact_type, 0) + 1
             
-            self.logger.info("Artifacts Identified:")
+            self.logger.debug("Artifacts Identified:")
             for artifact_type, count in artifact_types.items():
-                self.logger.info(f"  - {artifact_type}: {count} file(s)")
+                self.logger.debug(f"  - {artifact_type}: {count} file(s)")
             
             # Download results summary
             if download_results:
                 successful = len([r for r in download_results if r['success']])
                 failed = len([r for r in download_results if not r['success']])
-                self.logger.info(f"Download Results: {successful} successful, {failed} failed")
+                self.logger.debug(f"Download Results: {successful} successful, {failed} failed")
                 
                 if failed > 0:
                     self.logger.warning("Failed downloads:")
@@ -691,7 +691,7 @@ class DatabricksExporter:
                         if not result['success']:
                             self.logger.warning(f"  - {result['original_path']}: {result['error_message']}")
             
-            self.logger.info("=" * 60)
+            self.logger.debug("=" * 60)
             
         except Exception as e:
             self.logger.error(f"Error generating processing summary: {str(e)}")
@@ -711,7 +711,7 @@ class DatabricksExporter:
             Tuple of (success, resource_mapping) where resource_mapping is optional
         """
         try:
-            self.logger.debug(f"Starting job processing for job ID: {job_id}")
+            self.logger.info(f"Starting job processing for job ID: {job_id}")
 
             # Get workflow definition and job details (now includes all task types)
             # Get workflow definition and job details (now includes all task types)
@@ -724,7 +724,7 @@ class DatabricksExporter:
             job_name = workflow_definition[0]['Job_Name']
             
             # Log job details
-            self.logger.info(f"Processing job id: {job_id}, job name: {job_name}")
+            self.logger.debug(f"Processing job id: {job_id}, job name: {job_name}")
             self.logger.debug(f"Workflow definition contains {len(workflow_definition)} tasks")
             
             # Backup existing files
@@ -753,10 +753,10 @@ class DatabricksExporter:
             
             # Check export_libraries flag for this workflow
             export_libraries = self.config_manager.get_workflow_export_libraries_flag(job_id)
-            self.logger.info(f"Export libraries flag for job {job_id}: {export_libraries}")
+            self.logger.debug(f"Export libraries flag for job {job_id}: {export_libraries}")
             
             # Process different task types to identify additional artifacts to download
-            self.logger.info("Processing tasks by type to identify artifacts...")
+            self.logger.debug("Processing tasks by type to identify artifacts...")
             
             # Process notebook tasks (already handled by bundle generate)
             notebook_artifacts = self._process_notebook_tasks(workflow_definition, start_path)
@@ -773,7 +773,7 @@ class DatabricksExporter:
             task_lib_artifacts = []
             
             if export_libraries:
-                self.logger.info("Processing library artifacts (export_libraries is enabled)")
+                self.logger.debug("Processing library artifacts (export_libraries is enabled)")
                 # Process python wheel tasks (libraries)
                 wheel_artifacts = self._process_python_wheel_tasks(workflow_definition, start_path)
                 
@@ -783,7 +783,7 @@ class DatabricksExporter:
                 # Process task-level libraries
                 task_lib_artifacts = self._process_task_libraries(workflow_definition, start_path)
             else:
-                self.logger.info("Skipping library artifacts processing (export_libraries is disabled)")
+                self.logger.debug("Skipping library artifacts processing (export_libraries is disabled)")
             
             # Combine all artifacts that need to be downloaded
             all_artifacts = (notebook_artifacts + python_artifacts + sql_artifacts + 
@@ -792,20 +792,20 @@ class DatabricksExporter:
             # Download additional artifacts (non-notebook files)
             download_artifacts = [a for a in all_artifacts if a.get('type') != 'notebook']
             if download_artifacts:
-                self.logger.info(f"Downloading {len(download_artifacts)} additional artifacts...")
+                self.logger.debug(f"Downloading {len(download_artifacts)} additional artifacts...")
                 download_results = self.workflow_manager.export_multiple_artifacts(download_artifacts, start_path)
                 
                 # Log download results
                 successful_downloads = [r for r in download_results if r['success']]
                 failed_downloads = [r for r in download_results if not r['success']]
                 
-                self.logger.info(f"Successfully downloaded {len(successful_downloads)} artifacts")
+                self.logger.debug(f"Successfully downloaded {len(successful_downloads)} artifacts")
                 if failed_downloads:
                     self.logger.warning(f"Failed to download {len(failed_downloads)} artifacts:")
                     for failed in failed_downloads:
                         self.logger.warning(f"  - {failed['original_path']}: {failed['error_message']}")
             else:
-                self.logger.info("No additional artifacts to download")
+                self.logger.debug("No additional artifacts to download")
                 download_results = []
             
             # Convert workflow to DataFrame for notebook processing (backward compatibility)
@@ -890,7 +890,7 @@ class DatabricksExporter:
                     self.logger.debug(f"filtered_df content:\n{filtered_df}")
                     return False, None
             else:
-                self.logger.info("No notebook files to move")
+                self.logger.debug("No notebook files to move")
                 src_dest_mapping = {}
             
             # Add mappings for additional artifacts
@@ -965,7 +965,7 @@ class DatabricksExporter:
                 self.logger.error(f"Error in updating YAML file for job id: {job_id}: {output}")
                 return False, None
             
-            self.logger.info("Successfully updated the YAML file.")
+            self.logger.debug("Successfully updated the YAML file.")
 
             # Validate folder structure after processing
             if not self._validate_folder_structure(start_path, job_name, 'job'):
@@ -1000,11 +1000,12 @@ class DatabricksExporter:
             list_resource_key_job_id_mapping: List of resource mappings
         """
         # Write the mapping of resource key to job id to a csv file
+        header = not os.path.exists(v_resource_key_job_id_mapping_csv_file_path)
         if not os.path.exists(os.path.dirname(v_resource_key_job_id_mapping_csv_file_path)):
             os.makedirs(os.path.dirname(v_resource_key_job_id_mapping_csv_file_path))
         df_resource_key_job_id_mapping = pd.DataFrame(list_resource_key_job_id_mapping, columns=['job_key', 'job_id'])
-        df_resource_key_job_id_mapping.to_csv(v_resource_key_job_id_mapping_csv_file_path, index=False)
-        self.logger.info(f"Resource key to job ID mappings saved to {v_resource_key_job_id_mapping_csv_file_path}")
+        df_resource_key_job_id_mapping.to_csv(v_resource_key_job_id_mapping_csv_file_path, index=False, mode='a', header=header)
+        self.logger.debug(f"Resource key to job ID mappings saved to {v_resource_key_job_id_mapping_csv_file_path}")
 
     def run_workflow_export(self) -> None:
         """Run the end-to-end workflow processing."""
@@ -1013,7 +1014,7 @@ class DatabricksExporter:
         
         # Get job arguments from config manager
         active_jobs = self.config_manager.get_active_jobs()
-        self.logger.info(f"List of Job IDs: {active_jobs}")
+        self.logger.debug(f"List of Job IDs: {active_jobs}")
         
         # Initialize variables from config manager
         start_path, resource_key_job_id_mapping_csv_file_path, backup_yaml_path, _, _ = self.config_manager.get_initial_paths()
@@ -1038,7 +1039,7 @@ class DatabricksExporter:
                     successful_jobs.append(job_id)
                     if resource_mapping:
                         resource_mappings.append(resource_mapping)
-                        self.logger.info(f"Resource mapping for job {job_id}: {resource_mapping}")
+                        self.logger.debug(f"Resource mapping for job {job_id}: {resource_mapping}")
                 else:
                     failed_jobs.append(job_id)
             except Exception as e:
@@ -1046,14 +1047,14 @@ class DatabricksExporter:
                 failed_jobs.append(job_id)
         
         # Log final summary
-        self.logger.info(f"Job processing completed. Successful jobs: {successful_jobs}")
+        self.logger.debug(f"Job processing completed. Successful jobs: {successful_jobs}")
         if failed_jobs:
             self.logger.warning(f"Failed jobs: {failed_jobs}")
         if resource_mappings:
             self.save_bind_mappings(resource_key_job_id_mapping_csv_file_path, resource_mappings)
-            self.logger.info(f"Resource mappings: {resource_mappings}")
+            self.logger.debug(f"Resource mappings: {resource_mappings}")
         
-        self.logger.info(f"Workflow export process completed. {len(successful_jobs)} jobs processed successfully.")
+        self.logger.debug(f"Workflow export process completed. {len(successful_jobs)} jobs processed successfully.")
     
     def run_pipeline_export(self) -> None:
         """Run the end-to-end pipeline processing."""
@@ -1062,7 +1063,7 @@ class DatabricksExporter:
         
         # Get pipeline arguments from config manager
         active_pipelines = self.config_manager.get_active_pipelines()
-        self.logger.info(f"List of Pipeline IDs: {active_pipelines}")
+        self.logger.debug(f"List of Pipeline IDs: {active_pipelines}")
         
         # Initialize variables from config manager
         start_path, resource_key_job_id_mapping_csv_file_path, backup_yaml_path, _, _ = self.config_manager.get_initial_paths()
@@ -1087,7 +1088,7 @@ class DatabricksExporter:
                     successful_pipelines.append(pipeline_id)
                     if resource_mapping:
                         resource_mappings.append(resource_mapping)
-                        self.logger.info(f"Resource mapping for pipeline {pipeline_id}: {resource_mapping}")
+                        self.logger.debug(f"Resource mapping for pipeline {pipeline_id}: {resource_mapping}")
                 else:
                     failed_pipelines.append(pipeline_id)
             except Exception as e:
@@ -1095,15 +1096,15 @@ class DatabricksExporter:
                 failed_pipelines.append(pipeline_id)
         
         # Log final summary
-        self.logger.info(f"Pipeline processing completed. Successful pipelines: {successful_pipelines}")
+        self.logger.debug(f"Pipeline processing completed. Successful pipelines: {successful_pipelines}")
         if failed_pipelines:
             self.logger.warning(f"Failed pipelines: {failed_pipelines}")
         if resource_mappings:
             # Reuse the same bind mappings function for pipelines
             self.save_bind_mappings(resource_key_job_id_mapping_csv_file_path, resource_mappings)
-            self.logger.info(f"Resource mappings: {resource_mappings}")
+            self.logger.debug(f"Resource mappings: {resource_mappings}")
         
-        self.logger.info(f"Pipeline export process completed. {len(successful_pipelines)} pipelines processed successfully.")
+        self.logger.debug(f"Pipeline export process completed. {len(successful_pipelines)} pipelines processed successfully.")
     
     def process_pipeline(self, pipeline_id: str, start_path: str, backup_yaml_path: str,
                        pipeline_status: str) -> Tuple[bool, Optional[Tuple[str, str]]]:
@@ -1120,7 +1121,7 @@ class DatabricksExporter:
             Tuple of (success, resource_mapping) where resource_mapping is optional
         """
         try:
-            self.logger.debug(f"Starting pipeline processing for pipeline ID: {pipeline_id}")
+            self.logger.info(f"Starting pipeline processing for pipeline ID: {pipeline_id}")
 
             # Get pipeline details to extract the name (similar to workflow processing)
             pipeline_details = self.workflow_manager.get_pipeline_details(pipeline_id)
@@ -1129,7 +1130,7 @@ class DatabricksExporter:
                 return False, None
             
             pipeline_name = getattr(pipeline_details.spec, 'name', f"pipeline_{pipeline_id}")
-            self.logger.info(f"Processing pipeline id: {pipeline_id}, pipeline name: {pipeline_name}")
+            self.logger.debug(f"Processing pipeline id: {pipeline_id}, pipeline name: {pipeline_name}")
 
             # Backup existing pipeline files
             backup_file = self._clean_existing_pipeline_files(start_path, pipeline_name, backup=True)
@@ -1146,7 +1147,7 @@ class DatabricksExporter:
             # Clean up the backup file after a successful run
             self._clean_existing_pipeline_files(start_path, pipeline_name, backup=False)
 
-            self.logger.info(f"YAML and source files generated successfully for pipeline '{pipeline_name}' (ID: {pipeline_id})")
+            self.logger.debug(f"YAML and source files generated successfully for pipeline '{pipeline_name}' (ID: {pipeline_id})")
 
             # Discover generated files from the filesystem
             file_paths = self._discover_generated_files(start_path, pipeline_name, 'pipeline')
@@ -1158,12 +1159,12 @@ class DatabricksExporter:
             
             # Check export_libraries flag for this pipeline
             export_libraries = self.config_manager.get_pipeline_export_libraries_flag(pipeline_id)
-            self.logger.info(f"Export libraries flag for pipeline '{pipeline_name}' (ID: {pipeline_id}): {export_libraries}")
+            self.logger.debug(f"Export libraries flag for pipeline '{pipeline_name}' (ID: {pipeline_id}): {export_libraries}")
             
             # Get pipeline library details using the new function (similar to get_job_workflow_tasks)
-            self.logger.info("Retrieving pipeline library definitions...")
+            self.logger.debug("Retrieving pipeline library definitions...")
             pipeline_libraries = self.workflow_manager.get_pipeline_workflow_tasks(pipeline_id)
-            self.logger.info(f"Retrieved {len(pipeline_libraries)} library definitions for pipeline '{pipeline_name}' (ID: {pipeline_id})")
+            self.logger.debug(f"Retrieved {len(pipeline_libraries)} library definitions for pipeline '{pipeline_name}' (ID: {pipeline_id})")
             
             # Process pipeline libraries for artifacts
             all_artifacts = []
@@ -1176,7 +1177,7 @@ class DatabricksExporter:
                 return False, None
             
             yml_file_abs = pipeline_yaml_files[0]
-            self.logger.info(f"Found pipeline YAML file: {yml_file_abs}")
+            self.logger.debug(f"Found pipeline YAML file: {yml_file_abs}")
             
             # Process different library types from pipeline definition based on pipeline type
             # Use root folder-based approach to differentiate lakeflow vs legacy pipelines
@@ -1197,7 +1198,7 @@ class DatabricksExporter:
                     root_path = lib.get('Root_Path')
                     if root_path:
                         root_folder_count += 1
-                        self.logger.info(f"Processing lakeflow pipeline with root path: {root_path}")
+                        self.logger.debug(f"Processing lakeflow pipeline with root path: {root_path}")
                         
                         # Apply path transformations to root path (same as other artifacts)
                         transformed_root_path = self.file_manager.transform_notebook_path(root_path, {})
@@ -1244,7 +1245,7 @@ class DatabricksExporter:
                                     except Exception as e:
                                         self.logger.warning(f"Error creating path mapping for {original_path}: {e}")
                             
-                            self.logger.info(f"Root path processed: {len([f for f in root_folder_files if f.get('success')])}/{len(root_folder_files)} files downloaded to {local_root_dir}")
+                            self.logger.debug(f"Root path processed: {len([f for f in root_folder_files if f.get('success')])}/{len(root_folder_files)} files downloaded to {local_root_dir}")
                             
                         except Exception as e:
                             self.logger.error(f"Error processing root path {root_path}: {e}")
@@ -1343,20 +1344,20 @@ class DatabricksExporter:
             # Log summary of what was found
             if root_folder_count > 0:
                 # Lakeflow pipeline
-                self.logger.info(f"Lakeflow pipeline summary: {root_folder_count} root folders, {external_notebook_count} external notebooks, {file_count} library files")
+                self.logger.debug(f"Lakeflow pipeline summary: {root_folder_count} root folders, {external_notebook_count} external notebooks, {file_count} library files")
             else:
                 # Legacy pipeline
                 if export_libraries:
-                    self.logger.info(f"Legacy pipeline summary: {notebook_count} notebooks, {file_count} library files (export_libraries enabled)")
+                    self.logger.debug(f"Legacy pipeline summary: {notebook_count} notebooks, {file_count} library files (export_libraries enabled)")
                 else:
-                    self.logger.info(f"Legacy pipeline summary: {notebook_count} notebooks, 0 library files (export_libraries disabled - notebooks only)")
+                    self.logger.debug(f"Legacy pipeline summary: {notebook_count} notebooks, 0 library files (export_libraries disabled - notebooks only)")
             
             # For non-root folder artifacts, use the existing export_multiple_artifacts method
             non_root_artifacts = [a for a in pipeline_artifacts if a.get('category') != 'root_path' and not a.get('success', False)]
             root_artifacts = [a for a in pipeline_artifacts if a.get('category') == 'root_path']
             
             if non_root_artifacts:
-                self.logger.info(f"Downloading {len(non_root_artifacts)} individual pipeline artifacts...")
+                self.logger.debug(f"Downloading {len(non_root_artifacts)} individual pipeline artifacts...")
                 downloaded_artifacts = self.workflow_manager.export_multiple_artifacts(non_root_artifacts, start_path)
                 
                 # Combine root folder artifacts with downloaded artifacts
@@ -1367,7 +1368,7 @@ class DatabricksExporter:
             if all_artifacts:
                 # Log download results
                 successful_artifacts = [a for a in all_artifacts if a.get('success', False)]
-                self.logger.info(f"Pipeline artifact download summary: {len(successful_artifacts)}/{len(all_artifacts)} artifacts processed successfully")
+                self.logger.debug(f"Pipeline artifact download summary: {len(successful_artifacts)}/{len(all_artifacts)} artifacts processed successfully")
                 
                 # Log failed artifacts for troubleshooting
                 failed_artifacts = [a for a in all_artifacts if not a.get('success', False)]
@@ -1377,7 +1378,7 @@ class DatabricksExporter:
                         self.logger.warning(f"  - {artifact.get('original_path', 'unknown')}: {artifact.get('error_message', 'unknown error')}")
             else:
                 all_artifacts = []
-                self.logger.info("No pipeline artifacts found to download")
+                self.logger.debug("No pipeline artifacts found to download")
             
             # Create path mappings for downloaded artifacts
             # For pipelines, we need to map from the generated YAML paths (like ../src/file.sql) 
@@ -1386,7 +1387,7 @@ class DatabricksExporter:
             # Check if this is a Lakeflow pipeline (has root_path)
             is_lakeflow_pipeline = len(root_artifacts) > 0
             if is_lakeflow_pipeline:
-                self.logger.info("Detected Lakeflow pipeline with root_path - skipping individual path mapping")
+                self.logger.debug("Detected Lakeflow pipeline with root_path - skipping individual path mapping")
             
             # First, read the generated pipeline YAML to get the src paths
             pipeline_yaml_files = [f for f in file_paths if f.endswith('.yml') and 'pipeline' in f.lower()]
@@ -1459,7 +1460,7 @@ class DatabricksExporter:
                             if src_path not in src_dest_mapping:
                                 self.logger.warning(f"No downloaded artifact found for YAML src path: {src_path}")
                     else:
-                        self.logger.info("Lakeflow pipeline: Skipping individual file path mapping - root folder structure preserved")
+                        self.logger.debug("Lakeflow pipeline: Skipping individual file path mapping - root folder structure preserved")
                 
                 except Exception as e:
                     self.logger.error(f"Error reading pipeline YAML for path mapping: {e}")
@@ -1475,11 +1476,11 @@ class DatabricksExporter:
             if src_dest_mapping or is_lakeflow_pipeline:
                 # Determine what type of update to perform
                 if is_lakeflow_pipeline:
-                    self.logger.info("Updating Lakeflow pipeline YAML file with value replacements only (no path mapping)")
+                    self.logger.debug("Updating Lakeflow pipeline YAML file with value replacements only (no path mapping)")
                     # For Lakeflow pipelines, use empty path mapping but still apply value replacements
                     path_mapping = {}
                 else:
-                    self.logger.info(f"Updating legacy pipeline YAML file with {len(src_dest_mapping)} path mappings...")
+                    self.logger.debug(f"Updating legacy pipeline YAML file with {len(src_dest_mapping)} path mappings...")
                     path_mapping = src_dest_mapping
                 
                 # Ensure backup directory exists
@@ -1512,12 +1513,12 @@ class DatabricksExporter:
                     self.logger.error(f"Error updating pipeline YAML file: {output}")
                     return False, None
                 
-                self.logger.info("Successfully updated pipeline YAML file.")
+                self.logger.debug("Successfully updated pipeline YAML file.")
             
             # Log artifact processing summary
             if all_artifacts:
                 successful_artifacts = [a for a in all_artifacts if a.get('success', False)]
-                self.logger.info(f"Pipeline artifact processing summary: {len(successful_artifacts)}/{len(all_artifacts)} artifacts processed successfully")
+                self.logger.debug(f"Pipeline artifact processing summary: {len(successful_artifacts)}/{len(all_artifacts)} artifacts processed successfully")
                 
                 # Log failed artifacts for troubleshooting
                 failed_artifacts = [a for a in all_artifacts if not a.get('success', False)]
@@ -1534,7 +1535,7 @@ class DatabricksExporter:
             # Clean up temporary src/ folder files
             self._cleanup_src_folder(start_path)
 
-            self.logger.info(f"Pipeline '{pipeline_name}' (ID: {pipeline_id}) processing completed successfully")
+            self.logger.debug(f"Pipeline '{pipeline_name}' (ID: {pipeline_id}) processing completed successfully")
             
             # Return pipeline resource mapping if needed
             pipeline_resource_name = self.file_manager.convert_string(pipeline_name)
@@ -1671,7 +1672,7 @@ class DatabricksExporter:
                 library_mappings = self._process_pipeline_libraries(pipeline_id, start_path)
                 path_mappings.update(library_mappings)
             
-            self.logger.info(f"Legacy pipeline processing completed with {len(path_mappings)} path mappings")
+            self.logger.debug(f"Legacy pipeline processing completed with {len(path_mappings)} path mappings")
             return True, path_mappings
             
         except Exception as e:
@@ -2113,7 +2114,7 @@ class DatabricksExporter:
                 
                 # Remove the entire src directory
                 shutil.rmtree(src_directory)
-                self.logger.info(f"Cleaned up src/ folder: removed {file_count} temporary files from {src_directory}")
+                self.logger.debug(f"Cleaned up src/ folder: removed {file_count} temporary files from {src_directory}")
             else:
                 self.logger.debug("No src/ folder found to clean up")
                 

@@ -172,5 +172,5 @@ class SharedUtils:
             'failed_artifacts': [a for a in artifacts if not a.get('success', False)]
         }
         
-        self.logger.info(f"Artifact summary: {successful}/{total} successful ({summary['success_rate']:.1f}%)")
+        self.logger.debug(f"Artifact summary: {successful}/{total} successful ({summary['success_rate']:.1f}%)")
         return summary 

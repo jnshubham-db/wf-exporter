@@ -104,7 +104,7 @@ class ConfigManager:
             if os.path.exists(config_file_path):
                 with open(config_file_path, "r") as config_file:
                     config_data = yaml.safe_load(config_file)
-                    self.logger.info(f"Configuration loaded successfully from: {config_file_path}")
+                    self.logger.debug(f"Configuration loaded successfully from: {config_file_path}")
                     return config_data
             else:
                 self.logger.error(f"Config file not found: {config_file_path}")

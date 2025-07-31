@@ -164,7 +164,7 @@ class ExportFileHandler:
             # Log summary
             files_moved = total_files - files_not_moved
             if files_not_moved == 0:
-                self.logger.info(f"All {files_moved} files moved successfully for job id: {job_id}")
+                self.logger.debug(f"All {files_moved} files moved successfully for job id: {job_id}")
             else:
                 self.logger.warning(f"{files_moved}/{total_files} files moved successfully for job id: {job_id}. {files_not_moved} files not moved.")
             

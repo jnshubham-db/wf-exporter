@@ -182,24 +182,24 @@ class InstallerCore:
         
         try:
             # Find and delete the WF Exporter job
-            jobs = list(self.client.jobs.list())
+            user = self.client.current_user.me()['userName']
+            jobs = list(self.client.jobs.list(name="[WF] Exporter"))
             for job in jobs:
-                if job.settings and job.settings.name == "[WF] Exporter":
+                if job.settings and job.settings.name == "[WF] Exporter" and job.settings.creator_user_name == user:
                     self.client.jobs.delete(job.job_id)
                     break
             
             # Clean up workspace files
             workspace_paths = [
-                "/Workspace/Applications/wf_exporter/wf_config",
-                "/Workspace/Applications/wf_exporter/exports"
+                "/Workspace/Applications/wf_exporter/wf_config"
             ]
             
             for path in workspace_paths:
                 try:
                     self.client.workspace.delete(path, recursive=True)
-                except Exception:
-                    # Path might not exist
-                    pass
+                except Exception as e:
+                    logger.error(f"Failed to delete workspace path: {e}")
+                    raise
         
         except Exception as e:
             raise RuntimeError(f"Failed to uninstall workflow: {e}")
@@ -212,12 +212,13 @@ class InstallerCore:
         try:
             # Delete the app
             try:
+                user = self.client.current_user.me()['userName']
                 app = self.client.apps.get("wf-exporter-app")
-                if app:
+                if app and app.creator_user_name == user:
                     self.client.apps.delete("wf-exporter-app")
-            except Exception:
-                # App might not exist
-                pass
+            except Exception as e:
+                logger.error(f"Failed to uninstall app: {e}")
+                raise
             
             # Clean up workspace files
             try:
@@ -225,9 +226,9 @@ class InstallerCore:
                     "/Workspace/Applications/wf_exporter/app_config",
                     recursive=True
                 )
-            except Exception:
-                # Path might not exist
-                pass
+            except Exception as e:
+                logger.error(f"Failed to delete app config: {e}")
+                raise
         
         except Exception as e:
             raise RuntimeError(f"Failed to uninstall app: {e}")

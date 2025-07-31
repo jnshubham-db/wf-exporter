@@ -267,7 +267,7 @@ class YamlSerializer:
             with open(modified_yml_file, "w") as file:
                 yaml.dump(yaml_data, file, default_flow_style=False, sort_keys=False, Dumper=self.CustomDumper)
             
-            self.logger.info(f"Successfully processed YAML file: {modified_yml_file}")
+            self.logger.debug(f"Successfully processed YAML file: {modified_yml_file}")
             return "0", "success"
             
         except Exception as e:
@@ -379,7 +379,7 @@ class YamlSerializer:
             with open(modified_yml_file, 'w', encoding='utf-8') as file:
                 yaml.dump(yaml_data, file, default_flow_style=False, sort_keys=False)
             
-            self.logger.info(f"Successfully processed {resource_type} YAML file: {modified_yml_file}")
+            self.logger.debug(f"Successfully processed {resource_type} YAML file: {modified_yml_file}")
             return "0", "success"
             
         except Exception as e:

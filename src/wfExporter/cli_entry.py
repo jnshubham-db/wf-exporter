@@ -233,6 +233,12 @@ def uninstall(workflow, app, uninstall_all):
     """Uninstall WF Exporter components from Databricks workspace."""
     from .cli.install_cli import run_uninstall
     
+    # If no specific flags are provided, default to uninstalling all components
+    if not (workflow or app or uninstall_all):
+        uninstall_all = True
+        workflow = True
+        app = True
+    
     try:
         run_uninstall(
             uninstall_workflow=workflow or uninstall_all,
