@@ -36,8 +36,43 @@ except ImportError:
     Installer = None
     InstallerCore = None
 
-# Version information
-__version__ = "0.4.0"
+# Version information - dynamically read from package metadata
+try:
+    from importlib.metadata import version
+    __version__ = version("wfexporter")
+except ImportError:
+    # Fallback for Python < 3.8
+    try:
+        from importlib_metadata import version
+        __version__ = version("wfexporter")
+    except ImportError:
+        # Final fallback if metadata is not available
+        __version__ = "unknown"
+except Exception:
+    # Fallback if package is not installed - read from pyproject.toml
+    try:
+        import os
+        import re
+        
+        # Get the path to pyproject.toml (go up from src/wfExporter to project root)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(current_dir))
+        pyproject_path = os.path.join(project_root, "pyproject.toml")
+        
+        if os.path.exists(pyproject_path):
+            with open(pyproject_path, 'r') as f:
+                content = f.read()
+                # Use regex to find version = "x.y.z" in the [tool.poetry] section
+                version_match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', content)
+                if version_match:
+                    __version__ = version_match.group(1)
+                else:
+                    __version__ = "unknown"
+        else:
+            __version__ = "unknown"
+    except Exception:
+        __version__ = "unknown"
+
 __author__ = "Shubham Jain"
 
 # Public API

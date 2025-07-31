@@ -69,9 +69,10 @@ def validate_profile(profile: str) -> bool:
         client = WorkspaceClient(profile=profile)
         # Try to get current user to validate connection
         user = client.current_user.me()
+        click.echo(f"✅ Authenticated as: {user.display_name}")
         return True
     except Exception as e:
-        click.echo(f"Failed to validate profile '{profile}': {e}", err=True)
+        click.echo(f"❌ Failed to validate profile '{profile}': {e}", err=True)
         return False
 
 
@@ -299,7 +300,7 @@ def run_install(
     click.echo("\nNext steps:")
     if install_workflow:
         click.echo("1. Update the generated config.yml with your workflow/pipeline IDs")
-        click.echo("2. Run: wf-export export -c config.yml")
+        click.echo("2. Run: wf-export run -c config.yml")
     if install_app:
         click.echo("3. Access your web app at the URL shown above")
 

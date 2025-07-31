@@ -29,22 +29,27 @@ Export Databricks workflows and DLT pipelines as YAML files with support for bot
 ## 📥 Installation
 
 ### Download from GitHub Releases
-
+1. Create a folder
 ```bash
-# Get the latest release wheel file
-curl -L -o wfexporter-1.0.6-py3-none-any.whl \
-  "https://github.com/YOUR_ORG/YOUR_REPO/releases/download/v1.0.6/wfexporter-1.0.6-py3-none-any.whl"
-
-# Install the wheel
-pip install wfexporter-1.0.6-py3-none-any.whl
+mkdir ~/wf_exporter
+cd ~/wf_exporter
 ```
 
-### Alternative: Clone and Install
+2. Download and install the binary
+```bash
+# Get the latest release wheel file
+curl -L -o wfexporter-0.4.1-py3-none-any.whl \
+  "https://github.com/jnshubham-db/wf-exporter/releases/download/v0.4.1/wfexporter-0.4.1-py3-none-any.whl"
+```
 
 ```bash
-git clone <repository-url>
-cd wf-exporter
-poetry install
+# Install the wheel
+pip install wfexporter-0.4.1-py3-none-any.whl
+```
+
+3. Install the workflows, apps and local sample files
+```bash
+wf-export install
 ```
 
 ## 🎯 Usage
@@ -53,10 +58,10 @@ poetry install
 
 ```bash
 # Basic usage with config file
-wf-export --config config/config.yml
+wf-export run --config config/config.yml
 
 # With explicit credentials
-wf-export --config config/config.yml --host <databricks-host> --token <databricks-token>
+wf-export run --config config/config.yml --host <databricks-host> --token <databricks-token>
 
 # Help
 wf-export --help
@@ -267,4 +272,4 @@ exports/
 
 ---
 
-**Version**: 1.0.6 | **Python**: 3.11+ | **License**: MIT
+**Version**: 0.4.1 | **Python**: 3.11+ | **License**: MIT

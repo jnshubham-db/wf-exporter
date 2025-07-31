@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
+## [0.4.1]
+### Added
+- Updated samples for local run
+- Version management
+
+### Changed
+- Optimized the time for workflows installation
+
+### Fixed
+- Bug fix for run.py for workflows
+
 ## [0.4.0]
 ### Added
 - Contains code for databricks Apps and databricks workflows.
