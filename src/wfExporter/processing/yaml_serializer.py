@@ -26,8 +26,8 @@ class YamlSerializer:
     # Default replacements
     DEFAULT_REPLACEMENTS = {
         "${": "$${",
-        "azuesstqadbbigdata.": "${var.v_storage_account}.",
-        "{{secrets/attmx-storage-secrets/storage-key}}": "${var.v_storage_account_secret}"
+        "storageaccount.": "${var.v_storage_account}.",
+        "{{secrets/storage-secrets/storage-key}}": "${var.v_storage_account_secret}"
     }
     
     def __init__(self, logger: Optional[LogManager] = None):

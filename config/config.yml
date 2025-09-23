@@ -27,7 +27,7 @@ initial_variables:
   v_databricks_yml_path: "/Users/shubham.j/Documents/ATT/wf_exporter/wf-exporter/wf-exporter/config/databricks.yml"  # Path to databricks.yml file for bundle operations
 
 spark_conf_key_replacements:
-  - search_key: "spark.hadoop.fs.azure.account.key.azuesstqadbbigdata.dfs.core.windows.net"
+  - search_key: "spark.hadoop.fs.azure.account.key.storageaccount.dfs.core.windows.net"
     target_key: "spark.sql.shuffle.partitions"
     target_value: "{existing_value}\nspark.hadoop.fs.azure.account.key.${var.v_storage_account}.dfs.core.windows.net ${var.v_storage_account_secret}"
 
@@ -40,24 +40,18 @@ path_replacement:
 
 value_replacements:
   ${: $${
-  azuesstqadbbigdata.: ${var.v_storage_account}.
-  esazustpddbbigdata.: ${var.v_storage_account}.
-  '{{secrets/attmx-storage-secrets/storage-key}}': ${var.v_storage_account_secret}
-  AZURE_DLE_databricks_bigdatamx_qa: ${var.v_bigdata_group}
-  AZURE_DLE_databricks_bigdatamx_prod: ${var.v_bigdata_group}
-  AZURE_DLE_databricks_SopDWH_prod: ${var.v_SopDWH_group}
-  AZURE_DLE_databricks_Admin_prod: ${var.v_admin_group}
-  7cdf5dcf-54d6-4a1c-ba10-7fd308054e87: ${var.v_owner_sp}
-  b8a66bbe-9d97-4f64-bd3d-9e4768835700: ${var.v_owner_sp}
-  qadl: ${var.v_catalog}
-  dlprod: ${var.v_catalog}
+  storageaccount.: ${var.v_storage_account}.
+  '{{secrets/storage-secrets/storage-key}}': ${var.v_storage_account_secret}
+  databricks_admin_group: ${var.v_admin_group}
+  23kh123i-9837-9k12-23kw-13kn90dj2knk: ${var.v_owner_sp}
+  cat_qa: ${var.v_catalog}
 
 workflows:
-  - job_name: qadl-HILO_9061-MATRIXX_XML
-    job_id: 560049247860047
+  - job_name: sample-job
+    job_id: 897249384798923
     is_existing: true
     is_active: true
-  - job_name: SJ_DAB_Local_Test
-    job_id: 515643746440951
+  - job_name: Test-local-job
+    job_id: 238970238497092
     is_existing: true
     is_active: true
