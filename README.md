@@ -1,6 +1,18 @@
 # WF Exporter
 
-Export Databricks workflows and DLT pipelines as YAML files with support for both local development environments and Databricks notebook environments.
+WF Exporter is a comprehensive tool designed to export Databricks jobs from your workspace and save them as YAML files with full Databricks Asset Bundles (DABS) compatibility. This powerful utility streamlines the process of migrating from workspace-based development to Infrastructure as Code (IaC) practices.
+
+## What It Does
+
+This tool transforms your existing Databricks workspace assets into a structured, version-controlled format by providing:
+
+1. **Auto Extraction of Workflows YAML** - Automatically converts Databricks jobs into DABS-compatible YAML configuration files
+2. **Auto Extraction of Notebooks** - Downloads and organizes all associated notebooks into their respective directory structures  
+3. **Variable Substitution** - Performs intelligent path and value replacements to make exported assets compatible with DABS variable systems
+4. **CLI Support** - Provides command-line interface for batch processing and automation of workflow exports
+5. **Databricks Apps Support** - Offers a clean, user-friendly web interface for interactive extraction and management
+
+The tool supports both local development environments and Databricks notebook environments, making it versatile for different development workflows and deployment scenarios.
 
 ## 🚀 Features
 
@@ -44,7 +56,7 @@ curl -L -o wfexporter-0.4.1-py3-none-any.whl \
 
 ```bash
 # Install the wheel
-pip install wfexporter-0.4.1-py3-none-any.whl
+pip install wfexporter-0.4.3-py3-none-any.whl
 ```
 
 3. Install the workflows, apps and local sample files
